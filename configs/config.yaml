@@ -2,6 +2,7 @@ defaults:
   - model: softgear
   - data: sudoku
   - training: default
+  - _self_
 
 seed: 42
 wandb:

@@ -1231,6 +1231,7 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "huggingface-hub" },
     { name = "pytest" },
     { name = "pytest-timeout" },
 ]
@@ -1248,6 +1249,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "huggingface-hub", specifier = ">=1.5.0" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-timeout", specifier = ">=2.4.0" },
 ]
