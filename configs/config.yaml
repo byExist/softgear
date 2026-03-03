@@ -1,0 +1,9 @@
+defaults:
+  - model: softgear
+  - data: sudoku
+  - training: default
+
+seed: 42
+wandb:
+  project: softgear
+  entity: null

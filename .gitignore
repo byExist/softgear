@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# Docs & Plans (local only)
+docs/
+plans/
+
+# Data (large files)
+data/
+external/
+
+# Checkpoints
+checkpoints/
+*.pt
+*.pth
+
+# Logs
+wandb/
+outputs/
+multirun/
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
