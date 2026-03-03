@@ -23,6 +23,7 @@ build-backend = "hatchling.build"
 
 [dependency-groups]
 dev = [
+    "black>=26.1.0",
     "huggingface-hub>=1.5.0",
     "pytest>=9.0.2",
     "pytest-timeout>=2.4.0",
