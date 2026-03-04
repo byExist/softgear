@@ -64,13 +64,33 @@ class SoftGearTrainer:
         self.gradient_clip = tcfg.gradient_clip
         self.max_epochs_per_phase = tcfg.max_epochs_per_phase
 
-    def train(self) -> None:
-        depth = self.progressive.max_depth
-        for phase in range(1, depth + 1):
-            self.progressive.advance_phase()
-            log.info("Phase %d/%d started", phase, depth)
+        # Resume state (set by load_checkpoint)
+        self._resume_phase = 0
+        self._resume_epoch = 0
+        self._best_val_loss = float("inf")
 
-            for epoch in range(self.max_epochs_per_phase):
+    def train(self, checkpoint_dir: str | Path | None = None) -> None:
+        if checkpoint_dir is not None:
+            checkpoint_dir = Path(checkpoint_dir)
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+        best_val_loss = self._best_val_loss
+        depth = self.progressive.max_depth
+
+        for phase in range(1, depth + 1):
+            if phase <= self._resume_phase:
+                # Already restored by load_checkpoint; skip advance
+                if phase < self._resume_phase:
+                    continue
+                # phase == _resume_phase: start from _resume_epoch
+                epoch_start = self._resume_epoch
+            else:
+                self.progressive.advance_phase()
+                epoch_start = 0
+
+            log.info("Phase %d/%d started (epoch_start=%d)", phase, depth, epoch_start)
+
+            for epoch in range(epoch_start, self.max_epochs_per_phase):
                 train_loss = self._train_epoch()
                 val_loss = self._validate()
                 self.ema.update()
@@ -83,9 +103,30 @@ class SoftGearTrainer:
                     val_loss,
                 )
 
+                if checkpoint_dir is not None:
+                    self.save_checkpoint(
+                        checkpoint_dir / "latest.pt",
+                        phase=phase,
+                        epoch=epoch,
+                        best_val_loss=best_val_loss,
+                    )
+                    if val_loss < best_val_loss:
+                        best_val_loss = val_loss
+                        self.save_checkpoint(
+                            checkpoint_dir / "best.pt",
+                            phase=phase,
+                            epoch=epoch,
+                            best_val_loss=best_val_loss,
+                        )
+                        log.info("New best val_loss=%.4f saved", best_val_loss)
+
                 if self.progressive.should_advance(val_loss):
                     log.info("Phase %d converged, advancing", phase)
                     break
+
+        # Reset resume state
+        self._resume_phase = 0
+        self._resume_epoch = 0
 
     def _train_epoch(self) -> float:
         self.model.train()
@@ -130,13 +171,22 @@ class SoftGearTrainer:
         self.ema.restore()
         return total_loss / max(count, 1)
 
-    def save_checkpoint(self, path: str | Path) -> None:
+    def save_checkpoint(
+        self,
+        path: str | Path,
+        phase: int = 0,
+        epoch: int = 0,
+        best_val_loss: float = float("inf"),
+    ) -> None:
         torch.save(
             {
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "progressive_state": self.progressive.state_dict(),
                 "ema_state": self.ema.state_dict(),  # type: ignore[reportUnknownArgumentType]
+                "phase": phase,
+                "epoch": epoch,
+                "best_val_loss": best_val_loss,
             },  # type: ignore[reportUnknownArgumentType]
             path,
         )
@@ -148,3 +198,14 @@ class SoftGearTrainer:
         self.progressive.load_state_dict(ckpt["progressive_state"])
         self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])  # type: ignore[reportUnknownMemberType]
         self.ema.load_state_dict(ckpt["ema_state"])  # type: ignore[reportUnknownMemberType]
+
+        # Set resume state for train()
+        self._resume_phase = ckpt.get("phase", 0)
+        self._resume_epoch = ckpt.get("epoch", 0) + 1  # resume from next epoch
+        self._best_val_loss = ckpt.get("best_val_loss", float("inf"))
+        log.info(
+            "Resumed from phase %d epoch %d (best_val_loss=%.4f)",
+            self._resume_phase,
+            self._resume_epoch,
+            self._best_val_loss,
+        )

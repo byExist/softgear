@@ -140,7 +140,7 @@ def test_checkpoint_save_load():
     trainer.progressive.advance_phase()
 
     with tempfile.NamedTemporaryFile(suffix=".pt") as f:
-        trainer.save_checkpoint(f.name)
+        trainer.save_checkpoint(f.name, phase=2, epoch=1, best_val_loss=0.5)
 
         # Load into fresh trainer
         model2 = SoftGearModel(model_cfg)
@@ -149,3 +149,44 @@ def test_checkpoint_save_load():
 
         assert trainer2.progressive.current_phase() == 2
         assert model2.gear_chain.active_depth == 2
+        assert trainer2._resume_phase == 2
+        assert trainer2._resume_epoch == 2  # epoch 1 + 1
+        assert trainer2._best_val_loss == 0.5
+
+
+def test_auto_save_creates_checkpoints():
+    """train() with checkpoint_dir creates latest.pt and best.pt."""
+    model_cfg = make_cfg(gear_sizes=[1])
+    full_cfg = OmegaConf.create(
+        {
+            "model": OmegaConf.to_container(model_cfg),
+            "training": {
+                "lr": 1e-3,
+                "weight_decay": 0.01,
+                "alpha": 0.0,
+                "lr_decay": 0.5,
+                "ema_alphas": [0.99],
+                "advance_threshold": -1.0,
+                "gradient_clip": 1.0,
+                "max_epochs_per_phase": 1,
+            },
+        }
+    )
+
+    model = SoftGearModel(model_cfg)
+    loader = _make_dummy_loader()
+    trainer = SoftGearTrainer(full_cfg, model, loader, loader)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trainer.train(checkpoint_dir=tmpdir)
+
+        from pathlib import Path
+
+        ckpt_dir = Path(tmpdir)
+        assert (ckpt_dir / "latest.pt").exists()
+        assert (ckpt_dir / "best.pt").exists()
+
+        ckpt = torch.load(ckpt_dir / "latest.pt", weights_only=False)
+        assert "phase" in ckpt
+        assert "epoch" in ckpt
+        assert "best_val_loss" in ckpt

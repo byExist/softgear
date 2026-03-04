@@ -39,7 +39,13 @@ def main(cfg: DictConfig) -> None:
     log.info("Train: %d batches, Val: %d batches", len(train_loader), len(val_loader))
 
     trainer = SoftGearTrainer(cfg, model, train_loader, val_loader, device=device)
-    trainer.train()
+
+    checkpoint_dir = cfg.training.get("checkpoint_dir", "checkpoints")
+    resume_path = cfg.get("resume", None)
+    if resume_path:
+        trainer.load_checkpoint(resume_path)
+
+    trainer.train(checkpoint_dir=checkpoint_dir)
 
 
 if __name__ == "__main__":
