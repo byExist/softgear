@@ -1,8 +1,10 @@
 name: softgear
+vocab_size: 10
 hidden_dim: 256
 num_heads: 8
 ffn_dim: 1024
 gear_sizes: [1, 2, 3, 4]
+dropout: 0.1
 reentry: true
 adaptive_halt:
   enabled: true

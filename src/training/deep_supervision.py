@@ -17,7 +17,9 @@ class DeepSupervisionLoss(nn.Module):
 
     def _compute_loss(self, logits: Tensor, targets: Tensor) -> Tensor:
         """Reshape logits (B, S, V) and targets (B, S) for loss computation."""
-        return self.base_loss_fn(logits.reshape(-1, logits.size(-1)), targets.reshape(-1))
+        return self.base_loss_fn(
+            logits.reshape(-1, logits.size(-1)), targets.reshape(-1)
+        )
 
     def forward(self, model_output: ModelOutput, targets: Tensor) -> Tensor:
         main_loss = self._compute_loss(model_output.logits, targets)

@@ -22,8 +22,8 @@ def seed_everything(seed: int) -> None:
 @hydra.main(config_path="configs", config_name="config", version_base=None)
 def main(cfg: DictConfig) -> None:
     from omegaconf import OmegaConf
-    from torch.utils.data import DataLoader
 
+    from src.data.sudoku import build_sudoku_loaders
     from src.models.softgear import SoftGearModel
     from src.training.trainer import SoftGearTrainer
     from src.utils.device import get_device
@@ -35,9 +35,8 @@ def main(cfg: DictConfig) -> None:
     model = SoftGearModel(cfg.model)
     log.info("Model parameters: %d", model.parameter_count())
 
-    # TODO: Replace with real data loaders in Phase 4
-    train_loader: DataLoader = DataLoader([])  # type: ignore[arg-type]
-    val_loader: DataLoader = DataLoader([])  # type: ignore[arg-type]
+    train_loader, val_loader = build_sudoku_loaders(cfg)
+    log.info("Train: %d batches, Val: %d batches", len(train_loader), len(val_loader))
 
     trainer = SoftGearTrainer(cfg, model, train_loader, val_loader, device=device)
     trainer.train()
