@@ -13,9 +13,9 @@ BATCH = 2
 SEQ_LEN = 16
 
 
-def _make_chain(gear_sizes: list[int]) -> GearChain:
+def _make_chain(gear_resolutions: list[int]) -> GearChain:
     gears = [
-        Gear(size, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0) for size in gear_sizes
+        Gear(s, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0) for s in gear_resolutions
     ]
     return GearChain(gears)
 
@@ -34,8 +34,8 @@ def test_reentry_pattern():
             return super().forward(x)
 
     gears = [
-        TrackedGear(i, size, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0)
-        for i, size in enumerate([1, 2, 3])
+        TrackedGear(i, s, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0)
+        for i, s in enumerate([1, 2, 3])
     ]
     chain = GearChain(gears)
     x = torch.randn(BATCH, SEQ_LEN, HIDDEN_DIM)
@@ -70,8 +70,8 @@ def test_gear_execution_count():
             return super().forward(x)
 
     gears = [
-        CountGear(i, size, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0)
-        for i, size in enumerate([1, 2, 3, 4])
+        CountGear(i, s, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0)
+        for i, s in enumerate([1, 2, 3, 4])
     ]
     chain = GearChain(gears)
     x = torch.randn(BATCH, SEQ_LEN, HIDDEN_DIM)
@@ -108,13 +108,13 @@ def test_independent_weights():
 
 def test_computational_cost():
     """Total layer operations for D=4, sizes=[1,2,3,4] should be 20."""
-    gear_sizes = [1, 2, 3, 4]
-    depth = len(gear_sizes)
+    gear_resolutions = [1, 2, 3, 4]
+    depth = len(gear_resolutions)
 
     total_ops = 0
-    for i, size in enumerate(gear_sizes):
+    for i, s in enumerate(gear_resolutions):
         executions = depth - i  # G1 runs 4x, G2 runs 3x, ...
-        total_ops += size * executions
+        total_ops += s * executions
 
     assert total_ops == 20
 

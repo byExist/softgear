@@ -24,7 +24,7 @@ def main(cfg: DictConfig) -> None:
     from omegaconf import OmegaConf
 
     from src.data.sudoku import build_sudoku_loaders
-    from src.models.softgear import SoftGearModel
+    from src.models.sudoku_model import build_sudoku_model
     from src.training.trainer import SoftGearTrainer
     from src.utils.device import get_device
 
@@ -32,7 +32,7 @@ def main(cfg: DictConfig) -> None:
     log.info("Config:\n%s", OmegaConf.to_yaml(cfg))
 
     device = get_device()
-    model = SoftGearModel(cfg.model)
+    model = build_sudoku_model(cfg.model)
     log.info("Model parameters: %d", model.parameter_count())
 
     train_loader, val_loader = build_sudoku_loaders(cfg)

@@ -2,7 +2,7 @@ import torch
 from torch import nn
 
 from src.models.base import ModelOutput
-from src.models.softgear import SoftGearModel
+from src.models.sudoku_model import build_sudoku_model
 from src.training.deep_supervision import DeepSupervisionLoss
 from tests.test_softgear import make_cfg
 
@@ -66,7 +66,7 @@ def test_no_intermediates():
 
 def test_gradient_to_all_gears():
     """Backward must flow gradients to all gear parameters."""
-    model = SoftGearModel(make_cfg())
+    model = build_sudoku_model(make_cfg())
     loss_fn = DeepSupervisionLoss(nn.CrossEntropyLoss(), alpha=0.3)
 
     x = torch.randint(0, VOCAB_SIZE, (BATCH, SEQ_LEN))

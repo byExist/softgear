@@ -2,6 +2,7 @@ import torch
 from torch.optim import AdamW
 
 from src.models.softgear import SoftGearModel
+from src.models.sudoku_model import build_sudoku_model
 from src.training.progressive_depth import ProgressiveDepthScheduler
 from tests.test_softgear import make_cfg
 
@@ -12,12 +13,12 @@ BASE_LR = 1e-3
 
 
 def _make_scheduler(
-    gear_sizes: list[int] | None = None,
+    gear_resolutions: list[int] | None = None,
 ) -> tuple[SoftGearModel, ProgressiveDepthScheduler]:
-    if gear_sizes is None:
-        gear_sizes = [1, 2, 3, 4]
-    cfg = make_cfg(gear_sizes=gear_sizes)
-    model = SoftGearModel(cfg)
+    if gear_resolutions is None:
+        gear_resolutions = [1, 2, 3, 4]
+    cfg = make_cfg(gear_resolutions=gear_resolutions)
+    model = build_sudoku_model(cfg)
     # Optimizer with non-gear params (embedding, norm, output_head)
     non_gear_params = [
         p for n, p in model.named_parameters() if not n.startswith("gear_chain.gears.")

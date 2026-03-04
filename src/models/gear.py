@@ -1,8 +1,8 @@
 from torch import Tensor, nn
 
 
-class GearLayer(nn.Module):
-    """Single Pre-LN Transformer layer used inside a Gear."""
+class _Layer(nn.Module):
+    """Pre-LN Transformer block: internal to Gear."""
 
     def __init__(
         self,
@@ -26,37 +26,31 @@ class GearLayer(nn.Module):
         )
 
     def forward(self, x: Tensor) -> Tensor:
-        # Pre-LN: norm -> attn -> residual
         normed = self.norm1(x)
         attn_out, _ = self.attn(normed, normed, normed)
         x = x + attn_out
-        # Pre-LN: norm -> ffn -> residual
         x = x + self.ffn(self.norm2(x))
         return x
 
 
 class Gear(nn.Module):
-    """A single gear: N Transformer layers with independent weights.
+    """A single gear: resolution layers of Pre-LN Transformer.
 
-    The number of layers (num_layers) determines the gear's resolution.
-    Small gears perform coarse transforms, large gears perform fine transforms.
+    Low resolution (few layers) = coarse transform, high resolution = fine transform.
     """
 
     def __init__(
         self,
-        num_layers: int,
+        resolution: int,
         hidden_dim: int,
         num_heads: int,
         ffn_dim: int,
         dropout: float = 0.1,
     ):
         super().__init__()
-        self.num_layers = num_layers
+        self.resolution = resolution
         self.layers = nn.ModuleList(
-            [
-                GearLayer(hidden_dim, num_heads, ffn_dim, dropout)
-                for _ in range(num_layers)
-            ]
+            [_Layer(hidden_dim, num_heads, ffn_dim, dropout) for _ in range(resolution)]
         )
 
     def forward(self, x: Tensor) -> Tensor:

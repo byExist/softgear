@@ -4,7 +4,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 
 from src.models.base import ModelOutput
-from src.models.softgear import SoftGearModel
+from src.models.sudoku_model import build_sudoku_model
 
 
 def make_cfg(**overrides: Any) -> DictConfig:
@@ -13,7 +13,7 @@ def make_cfg(**overrides: Any) -> DictConfig:
         hidden_dim=64,
         num_heads=4,
         ffn_dim=256,
-        gear_sizes=[1, 2, 3, 4],
+        gear_resolutions=[1, 2, 3, 4],
         dropout=0.0,
     )
     defaults.update(overrides)
@@ -26,7 +26,7 @@ SEQ_LEN = 81
 
 def test_model_output_interface():
     """Model must return a ModelOutput dataclass."""
-    model = SoftGearModel(make_cfg())
+    model = build_sudoku_model(make_cfg())
     x = torch.randint(0, 11, (BATCH, SEQ_LEN))
     out = model(x)
 
@@ -42,17 +42,17 @@ def test_model_output_interface():
 def test_parameter_count():
     """Parameter count must be deterministic for a given config."""
     cfg = make_cfg()
-    m1 = SoftGearModel(cfg)
-    m2 = SoftGearModel(cfg)
+    m1 = build_sudoku_model(cfg)
+    m2 = build_sudoku_model(cfg)
     assert m1.parameter_count() == m2.parameter_count()
     assert m1.parameter_count() > 0
 
 
 def test_config_driven():
-    """Model works with various gear_sizes configurations."""
+    """Model works with various gear_resolutions configurations."""
     for sizes in [[1, 2], [1, 2, 3, 4], [2, 4, 8]]:
-        cfg = make_cfg(gear_sizes=sizes)
-        model = SoftGearModel(cfg)
+        cfg = make_cfg(gear_resolutions=sizes)
+        model = build_sudoku_model(cfg)
         x = torch.randint(0, 11, (BATCH, SEQ_LEN))
         out = model(x)
         assert out.logits.shape == (BATCH, SEQ_LEN, 11)
@@ -61,7 +61,7 @@ def test_config_driven():
 
 def test_gradient_flow():
     """Gradients must flow from output to embedding."""
-    model = SoftGearModel(make_cfg())
+    model = build_sudoku_model(make_cfg())
     x = torch.randint(0, 11, (BATCH, SEQ_LEN))
     out = model(x)
     out.logits.sum().backward()
@@ -72,7 +72,7 @@ def test_gradient_flow():
 
 def test_intermediate_logits_differ():
     """Intermediate logits from different rounds should not be identical."""
-    model = SoftGearModel(make_cfg())
+    model = build_sudoku_model(make_cfg())
     x = torch.randint(0, 11, (BATCH, SEQ_LEN))
     out = model(x)
 

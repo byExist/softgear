@@ -1,6 +1,7 @@
 import torch
 
 from src.models.softgear import SoftGearModel
+from src.models.sudoku_model import build_sudoku_model
 from src.training.differential_ema import DifferentialEMA
 from tests.test_softgear import make_cfg
 
@@ -9,8 +10,8 @@ SEQ_LEN = 16
 
 
 def _make_ema(alphas: list[float] | None = None) -> tuple[SoftGearModel, DifferentialEMA]:
-    cfg = make_cfg(gear_sizes=[1, 2])
-    model = SoftGearModel(cfg)
+    cfg = make_cfg(gear_resolutions=[1, 2])
+    model = build_sudoku_model(cfg)
     if alphas is None:
         alphas = [0.99, 0.999]
     ema = DifferentialEMA(model, alphas)

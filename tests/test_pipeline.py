@@ -6,7 +6,7 @@ from torch import nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader, TensorDataset
 
-from src.models.softgear import SoftGearModel
+from src.models.sudoku_model import build_sudoku_model
 from src.training.deep_supervision import DeepSupervisionLoss
 from src.training.differential_ema import DifferentialEMA
 from src.training.progressive_depth import ProgressiveDepthScheduler
@@ -26,8 +26,8 @@ def _make_dummy_loader(n_samples: int = 16) -> DataLoader[tuple[torch.Tensor, ..
 
 def test_full_pipeline_dummy():
     """Full pipeline: model -> loss -> backward -> optimizer -> EMA (no errors)."""
-    cfg = make_cfg(gear_sizes=[1, 2])
-    model = SoftGearModel(cfg)
+    cfg = make_cfg(gear_resolutions=[1, 2])
+    model = build_sudoku_model(cfg)
 
     non_gear_params = [
         p for n, p in model.named_parameters() if not n.startswith("gear_chain.gears.")
@@ -59,8 +59,8 @@ def test_full_pipeline_dummy():
 
 def test_phase_transition_end_to_end():
     """Phase 1 -> Phase 2 transition with training steps."""
-    cfg = make_cfg(gear_sizes=[1, 2, 3])
-    model = SoftGearModel(cfg)
+    cfg = make_cfg(gear_resolutions=[1, 2, 3])
+    model = build_sudoku_model(cfg)
 
     non_gear_params = [
         p for n, p in model.named_parameters() if not n.startswith("gear_chain.gears.")
@@ -88,7 +88,7 @@ def test_phase_transition_end_to_end():
 
 def test_trainer_runs():
     """SoftGearTrainer runs without errors on dummy data."""
-    model_cfg = make_cfg(gear_sizes=[1, 2])
+    model_cfg = make_cfg(gear_resolutions=[1, 2])
     full_cfg = OmegaConf.create(
         {
             "model": OmegaConf.to_container(model_cfg),
@@ -106,7 +106,7 @@ def test_trainer_runs():
         }
     )
 
-    model = SoftGearModel(model_cfg)
+    model = build_sudoku_model(model_cfg)
     loader = _make_dummy_loader()
 
     trainer = SoftGearTrainer(full_cfg, model, loader, loader)
@@ -115,7 +115,7 @@ def test_trainer_runs():
 
 def test_checkpoint_save_load():
     """Checkpoint save/load preserves trainer state."""
-    model_cfg = make_cfg(gear_sizes=[1, 2])
+    model_cfg = make_cfg(gear_resolutions=[1, 2])
     full_cfg = OmegaConf.create(
         {
             "model": OmegaConf.to_container(model_cfg),
@@ -133,7 +133,7 @@ def test_checkpoint_save_load():
         }
     )
 
-    model = SoftGearModel(model_cfg)
+    model = build_sudoku_model(model_cfg)
     loader = _make_dummy_loader()
     trainer = SoftGearTrainer(full_cfg, model, loader, loader)
 
@@ -145,7 +145,7 @@ def test_checkpoint_save_load():
         trainer.save_checkpoint(f.name, phase=2, epoch=1, best_val_loss=0.5)
 
         # Load into fresh trainer
-        model2 = SoftGearModel(model_cfg)
+        model2 = build_sudoku_model(model_cfg)
         trainer2 = SoftGearTrainer(full_cfg, model2, loader, loader)
         trainer2.load_checkpoint(f.name)
 
@@ -155,7 +155,7 @@ def test_checkpoint_save_load():
 
 def test_auto_save_creates_checkpoints():
     """train() with checkpoint_dir creates latest.pt and best.pt."""
-    model_cfg = make_cfg(gear_sizes=[1])
+    model_cfg = make_cfg(gear_resolutions=[1])
     full_cfg = OmegaConf.create(
         {
             "model": OmegaConf.to_container(model_cfg),
@@ -173,7 +173,7 @@ def test_auto_save_creates_checkpoints():
         }
     )
 
-    model = SoftGearModel(model_cfg)
+    model = build_sudoku_model(model_cfg)
     loader = _make_dummy_loader()
     trainer = SoftGearTrainer(full_cfg, model, loader, loader)
 

@@ -3,7 +3,7 @@ from collections.abc import Callable
 import pytest
 import torch
 
-from src.models.gear import Gear, GearLayer
+from src.models.gear import Gear
 
 HIDDEN_DIM = 64
 NUM_HEADS = 4
@@ -16,8 +16,8 @@ MakeGearFixture = Callable[[int], Gear]
 
 @pytest.fixture
 def make_gear() -> MakeGearFixture:
-    def _make(num_layers: int) -> Gear:
-        return Gear(num_layers, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0)
+    def _make(resolution: int) -> Gear:
+        return Gear(resolution, HIDDEN_DIM, NUM_HEADS, FFN_DIM, dropout=0.0)
 
     return _make
 
@@ -31,16 +31,16 @@ def test_gear_output_shape(make_gear: MakeGearFixture):
 
 
 def test_gear_different_sizes(make_gear: MakeGearFixture):
-    """Gears with different layer counts produce same-shaped outputs."""
+    """Gears with different sizes produce same-shaped outputs."""
     x = torch.randn(BATCH, SEQ_LEN, HIDDEN_DIM)
-    for num_layers in [1, 2, 3, 4]:
-        gear = make_gear(num_layers)
+    for r in [1, 2, 3, 4]:
+        gear = make_gear(r)
         out = gear(x)
-        assert out.shape == x.shape, f"num_layers={num_layers}"
+        assert out.shape == x.shape, f"resolution={r}"
 
 
 def test_gear_gradient_flow(make_gear: MakeGearFixture):
-    """Gradients must flow through all layers."""
+    """Gradients must flow through all blocks."""
     gear = make_gear(3)
     x = torch.randn(BATCH, SEQ_LEN, HIDDEN_DIM, requires_grad=True)
     out = gear(x)
@@ -53,7 +53,7 @@ def test_gear_gradient_flow(make_gear: MakeGearFixture):
 
 
 def test_gear_parameter_count(make_gear: MakeGearFixture):
-    """Parameter count scales linearly with num_layers."""
+    """Parameter count scales linearly with resolution."""
     g1 = make_gear(1)
     g2 = make_gear(2)
     g4 = make_gear(4)
@@ -66,10 +66,9 @@ def test_gear_parameter_count(make_gear: MakeGearFixture):
     assert p4 == p1 * 4
 
 
-def test_gear_layer_count(make_gear: MakeGearFixture):
-    """Gear must contain exactly num_layers GearLayers."""
+def test_gear_block_count(make_gear: MakeGearFixture):
+    """Gear must contain exactly `resolution` layers."""
     for n in [1, 2, 3, 4]:
         gear = make_gear(n)
         assert len(gear.layers) == n
-        for layer in gear.layers:
-            assert isinstance(layer, GearLayer)
+        assert gear.resolution == n
