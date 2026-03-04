@@ -64,6 +64,7 @@ class SoftGearTrainer:
             base_lr=tcfg.lr,
             lr_decay=tcfg.lr_decay,
             advance_threshold=tcfg.advance_threshold,
+            patience=tcfg.patience,
         )
         self.ema = DifferentialEMA(model, list(tcfg.ema_alphas))
 
@@ -82,7 +83,7 @@ class SoftGearTrainer:
             self._wandb_run = wandb.init(
                 project=wandb_cfg.project,
                 entity=wandb_cfg.get("entity"),
-                config=OmegaConf.to_container(cfg, resolve=True),
+                config=OmegaConf.to_container(cfg, resolve=True),  # type: ignore
                 resume="allow",
             )
 
@@ -171,7 +172,8 @@ class SoftGearTrainer:
             targets: Tensor = batch[1].to(self.device)
 
             output = self.model(inputs)
-            loss = self.loss_fn(output, targets)
+            blank_mask = inputs == 0
+            loss = self.loss_fn(output, targets, mask=blank_mask)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -200,7 +202,8 @@ class SoftGearTrainer:
                 targets: Tensor = batch[1].to(self.device)
 
                 output = self.model(inputs)
-                loss = self.loss_fn(output, targets)
+                blank_mask = inputs == 0
+                loss = self.loss_fn(output, targets, mask=blank_mask)
                 total_loss += loss.item()
                 count += 1
 

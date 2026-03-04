@@ -64,6 +64,42 @@ def test_no_intermediates():
         assert loss.ndim == 0  # scalar
 
 
+def test_mask_restricts_loss():
+    """Loss with mask should only consider masked positions."""
+    loss_fn = DeepSupervisionLoss(nn.CrossEntropyLoss(), alpha=0.0)
+    output = _make_model_output()
+    targets = _make_targets()
+
+    # Mask: only first 4 positions
+    mask = torch.zeros(BATCH, SEQ_LEN, dtype=torch.bool)
+    mask[:, :4] = True
+
+    masked_loss = loss_fn(output, targets, mask=mask)
+    # Compute expected: manually select masked positions
+    expected = nn.CrossEntropyLoss()(
+        output.logits[mask].reshape(-1, VOCAB_SIZE), targets[mask].reshape(-1)
+    )
+    assert torch.allclose(masked_loss, expected)
+
+
+def test_mask_with_intermediates():
+    """Mask should apply to both main and intermediate losses."""
+    loss_fn = DeepSupervisionLoss(nn.CrossEntropyLoss(), alpha=0.3)
+    output = _make_model_output()
+    targets = _make_targets()
+
+    mask = torch.zeros(BATCH, SEQ_LEN, dtype=torch.bool)
+    mask[:, :4] = True
+
+    # Should run without error and produce a scalar
+    loss = loss_fn(output, targets, mask=mask)
+    assert loss.ndim == 0
+
+    # Masked loss != unmasked loss (different positions)
+    unmasked_loss = loss_fn(output, targets)
+    assert not torch.allclose(loss, unmasked_loss)
+
+
 def test_gradient_to_all_gears():
     """Backward must flow gradients to all gear parameters."""
     model = SoftGearModel(make_cfg())

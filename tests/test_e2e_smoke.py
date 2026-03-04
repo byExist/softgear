@@ -28,6 +28,7 @@ def _run(args: list[str], timeout: int = 300) -> subprocess.CompletedProcess[str
     )
 
 
+@pytest.mark.slow
 @requires_data
 def test_pretrain_smoke():
     """pretrain.py completes without error and creates checkpoints."""
@@ -53,6 +54,7 @@ def test_pretrain_smoke():
         assert (Path(tmpdir) / "latest.pt").exists(), "latest.pt not created"
 
 
+@pytest.mark.slow
 @requires_data
 def test_evaluate_smoke():
     """evaluate.py loads checkpoint and prints puzzle_accuracy."""

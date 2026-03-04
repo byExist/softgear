@@ -23,12 +23,14 @@ class ProgressiveDepthScheduler:
         base_lr: float = 3e-4,
         lr_decay: float = 0.5,
         advance_threshold: float = 0.001,
+        patience: int = 5,
     ):
         self.model = model
         self.optimizer = optimizer
         self.base_lr = base_lr
         self.lr_decay = lr_decay
         self.advance_threshold = advance_threshold
+        self.patience = patience
         self._phase = 0
         self._val_losses: list[float] = []
         self._max_depth = model.gear_chain.depth
@@ -73,15 +75,17 @@ class ProgressiveDepthScheduler:
         self._val_losses.clear()
 
     def should_advance(self, val_loss: float) -> bool:
-        """Check if validation loss has plateaued."""
+        """Check if validation loss has plateaued using moving average."""
         if self._phase >= self._max_depth:
             return False
 
         self._val_losses.append(val_loss)
-        if len(self._val_losses) < 2:
+        if len(self._val_losses) < self.patience * 2:
             return False
 
-        improvement = self._val_losses[-2] - self._val_losses[-1]
+        recent = self._val_losses[-self.patience :]
+        previous = self._val_losses[-self.patience * 2 : -self.patience]
+        improvement = sum(previous) / len(previous) - sum(recent) / len(recent)
         return improvement < self.advance_threshold
 
     def state_dict(self) -> dict[str, Any]:

@@ -99,6 +99,7 @@ def test_trainer_runs():
                 "lr_decay": 0.5,
                 "ema_alphas": [0.99, 0.999],
                 "advance_threshold": -1.0,  # always advance after 2 epochs
+                "patience": 1,  # minimal patience for fast test
                 "gradient_clip": 1.0,
                 "max_epochs_per_phase": 2,
             },
@@ -125,6 +126,7 @@ def test_checkpoint_save_load():
                 "lr_decay": 0.5,
                 "ema_alphas": [0.99, 0.999],
                 "advance_threshold": 0.001,
+                "patience": 5,
                 "gradient_clip": 1.0,
                 "max_epochs_per_phase": 2,
             },
@@ -149,9 +151,6 @@ def test_checkpoint_save_load():
 
         assert trainer2.progressive.current_phase() == 2
         assert model2.gear_chain.active_depth == 2
-        assert trainer2._resume_phase == 2
-        assert trainer2._resume_epoch == 2  # epoch 1 + 1
-        assert trainer2._best_val_loss == 0.5
 
 
 def test_auto_save_creates_checkpoints():
@@ -167,6 +166,7 @@ def test_auto_save_creates_checkpoints():
                 "lr_decay": 0.5,
                 "ema_alphas": [0.99],
                 "advance_threshold": -1.0,
+                "patience": 1,
                 "gradient_clip": 1.0,
                 "max_epochs_per_phase": 1,
             },

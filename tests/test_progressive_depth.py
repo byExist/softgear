@@ -97,16 +97,28 @@ def test_gradient_isolation():
 
 
 def test_should_advance():
-    """should_advance returns True when loss improvement is below threshold."""
+    """should_advance returns True when moving average improvement is below threshold."""
     _, scheduler = _make_scheduler()
     scheduler.advance_phase()
 
-    # Decreasing losses → should not advance
-    assert not scheduler.should_advance(1.0)
-    assert not scheduler.should_advance(0.5)  # improvement = 0.5 > threshold
+    # Need patience*2 (default 10) data points before any decision
+    # Feed 5 decreasing losses (previous window)
+    for loss in [1.0, 0.9, 0.8, 0.7, 0.6]:
+        assert not scheduler.should_advance(loss)
 
-    # Plateau → should advance
-    assert scheduler.should_advance(0.4999)  # improvement = 0.0001 < 0.001
+    # Feed 5 more clearly lower losses (recent window) → big improvement → no advance
+    for loss in [0.2, 0.2, 0.2, 0.2]:
+        assert not scheduler.should_advance(loss)
+    assert not scheduler.should_advance(0.2)  # previous avg=0.8, recent avg=0.2
+
+    # Reset with a new scheduler for plateau test
+    _, scheduler2 = _make_scheduler()
+    scheduler2.advance_phase()
+
+    # Feed 10 nearly identical losses → plateau → should advance
+    for loss in [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5]:
+        scheduler2.should_advance(loss)
+    assert scheduler2.should_advance(0.5)  # previous avg ≈ recent avg → advance
 
 
 def test_active_depth():

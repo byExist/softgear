@@ -21,6 +21,10 @@ packages = ["src"]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+markers = ["slow: slow integration tests (deselected by default)"]
+addopts = "-m 'not slow'"
+
 [dependency-groups]
 dev = [
     "black>=26.1.0",
