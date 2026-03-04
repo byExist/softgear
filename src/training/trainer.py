@@ -5,15 +5,21 @@ from pathlib import Path
 from typing import Any
 
 import torch
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
+from src.evaluation.sudoku_metrics import sudoku_accuracy
 from src.models.softgear import SoftGearModel
 from src.training.deep_supervision import DeepSupervisionLoss
 from src.training.differential_ema import DifferentialEMA
 from src.training.progressive_depth import ProgressiveDepthScheduler
+
+try:
+    import wandb
+except ImportError:
+    wandb = None  # type: ignore[assignment]
 
 log = logging.getLogger(__name__)
 
@@ -69,6 +75,17 @@ class SoftGearTrainer:
         self._resume_epoch = 0
         self._best_val_loss = float("inf")
 
+        # wandb (disabled when wandb not installed or project is null)
+        self._wandb_run = None
+        wandb_cfg = getattr(cfg, "wandb", None)
+        if wandb is not None and wandb_cfg and wandb_cfg.get("project"):
+            self._wandb_run = wandb.init(
+                project=wandb_cfg.project,
+                entity=wandb_cfg.get("entity"),
+                config=OmegaConf.to_container(cfg, resolve=True),
+                resume="allow",
+            )
+
     def train(self, checkpoint_dir: str | Path | None = None) -> None:
         if checkpoint_dir is not None:
             checkpoint_dir = Path(checkpoint_dir)
@@ -92,16 +109,29 @@ class SoftGearTrainer:
 
             for epoch in range(epoch_start, self.max_epochs_per_phase):
                 train_loss = self._train_epoch()
-                val_loss = self._validate()
+                val_loss, val_metrics = self._validate()
                 self.ema.update()
 
                 log.info(
-                    "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f",
+                    "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f "
+                    "cell_acc=%.4f blank_acc=%.4f puzzle_acc=%.4f",
                     phase,
                     epoch,
                     train_loss,
                     val_loss,
+                    val_metrics["cell_accuracy"],
+                    val_metrics["blank_accuracy"],
+                    val_metrics["puzzle_accuracy"],
                 )
+
+                if self._wandb_run is not None:
+                    self._wandb_run.log({
+                        "phase": phase,
+                        "epoch": epoch,
+                        "train_loss": train_loss,
+                        "val_loss": val_loss,
+                        **val_metrics,
+                    })
 
                 if checkpoint_dir is not None:
                     self.save_checkpoint(
@@ -128,6 +158,9 @@ class SoftGearTrainer:
         self._resume_phase = 0
         self._resume_epoch = 0
 
+        if self._wandb_run is not None:
+            self._wandb_run.finish()
+
     def _train_epoch(self) -> float:
         self.model.train()
         total_loss = 0.0
@@ -151,12 +184,15 @@ class SoftGearTrainer:
 
         return total_loss / max(count, 1)
 
-    def _validate(self) -> float:
+    def _validate(self) -> tuple[float, dict[str, float]]:
         self.model.eval()
         self.ema.apply_shadow()
 
         total_loss = 0.0
         count = 0
+        all_preds: list[Tensor] = []
+        all_targets: list[Tensor] = []
+        all_inputs: list[Tensor] = []
 
         with torch.no_grad():
             for batch in self.val_loader:
@@ -168,8 +204,17 @@ class SoftGearTrainer:
                 total_loss += loss.item()
                 count += 1
 
+                preds = output.logits.argmax(dim=-1)
+                all_preds.append(preds)
+                all_targets.append(targets)
+                all_inputs.append(inputs)
+
         self.ema.restore()
-        return total_loss / max(count, 1)
+        avg_loss = total_loss / max(count, 1)
+        metrics = sudoku_accuracy(
+            torch.cat(all_preds), torch.cat(all_targets), torch.cat(all_inputs)
+        )
+        return avg_loss, metrics
 
     def save_checkpoint(
         self,
