@@ -23,6 +23,19 @@ class GearChain(nn.Module):
         super().__init__()
         self.gears = nn.ModuleList(gears)
         self.depth = len(gears)
+        self._active_depth = self.depth
+
+    @property
+    def active_depth(self) -> int:
+        return self._active_depth
+
+    @active_depth.setter
+    def active_depth(self, value: int) -> None:
+        if value < 0 or value > self.depth:
+            raise ValueError(
+                f"active_depth must be in [0, {self.depth}], got {value}"
+            )
+        self._active_depth = value
 
     def forward(self, h: Tensor) -> tuple[Tensor, list[Tensor]]:
         """Run the reentry pattern.
@@ -32,7 +45,7 @@ class GearChain(nn.Module):
             round_outputs: list of outputs from each round (for deep supervision)
         """
         round_outputs: list[Tensor] = []
-        for round_idx in range(self.depth):
+        for round_idx in range(self.active_depth):
             for gear_idx in range(round_idx + 1):
                 h = self.gears[gear_idx](h)
             round_outputs.append(h)

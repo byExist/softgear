@@ -7,7 +7,7 @@ from src.models.base import ModelOutput
 from src.models.softgear import SoftGearModel
 
 
-def _make_cfg(**overrides: Any) -> DictConfig:
+def make_cfg(**overrides: Any) -> DictConfig:
     defaults: dict[str, Any] = dict(
         vocab_size=11,
         hidden_dim=64,
@@ -26,7 +26,7 @@ SEQ_LEN = 81
 
 def test_model_output_interface():
     """Model must return a ModelOutput dataclass."""
-    model = SoftGearModel(_make_cfg())
+    model = SoftGearModel(make_cfg())
     x = torch.randint(0, 11, (BATCH, SEQ_LEN))
     out = model(x)
 
@@ -41,7 +41,7 @@ def test_model_output_interface():
 
 def test_parameter_count():
     """Parameter count must be deterministic for a given config."""
-    cfg = _make_cfg()
+    cfg = make_cfg()
     m1 = SoftGearModel(cfg)
     m2 = SoftGearModel(cfg)
     assert m1.parameter_count() == m2.parameter_count()
@@ -51,7 +51,7 @@ def test_parameter_count():
 def test_config_driven():
     """Model works with various gear_sizes configurations."""
     for sizes in [[1, 2], [1, 2, 3, 4], [2, 4, 8]]:
-        cfg = _make_cfg(gear_sizes=sizes)
+        cfg = make_cfg(gear_sizes=sizes)
         model = SoftGearModel(cfg)
         x = torch.randint(0, 11, (BATCH, SEQ_LEN))
         out = model(x)
@@ -61,7 +61,7 @@ def test_config_driven():
 
 def test_gradient_flow():
     """Gradients must flow from output to embedding."""
-    model = SoftGearModel(_make_cfg())
+    model = SoftGearModel(make_cfg())
     x = torch.randint(0, 11, (BATCH, SEQ_LEN))
     out = model(x)
     out.logits.sum().backward()
@@ -72,7 +72,7 @@ def test_gradient_flow():
 
 def test_intermediate_logits_differ():
     """Intermediate logits from different rounds should not be identical."""
-    model = SoftGearModel(_make_cfg())
+    model = SoftGearModel(make_cfg())
     x = torch.randint(0, 11, (BATCH, SEQ_LEN))
     out = model(x)
 

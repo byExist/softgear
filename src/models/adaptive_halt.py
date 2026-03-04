@@ -31,7 +31,7 @@ class GearChainWithHalt(GearChain):
 
     def forward(self, h: Tensor) -> tuple[Tensor, list[Tensor]]:
         round_outputs: list[Tensor] = []
-        for round_idx in range(self.depth):
+        for round_idx in range(self.active_depth):
             for gear_idx in range(round_idx + 1):
                 h = self.gears[gear_idx](h)
             round_outputs.append(h)
