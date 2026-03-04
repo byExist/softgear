@@ -172,8 +172,7 @@ class SoftGearTrainer:
             targets: Tensor = batch[1].to(self.device)
 
             output = self.model(inputs)
-            blank_mask = inputs == 0
-            loss = self.loss_fn(output, targets, mask=blank_mask)
+            loss = self.loss_fn(output, targets)
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -202,8 +201,7 @@ class SoftGearTrainer:
                 targets: Tensor = batch[1].to(self.device)
 
                 output = self.model(inputs)
-                blank_mask = inputs == 0
-                loss = self.loss_fn(output, targets, mask=blank_mask)
+                loss = self.loss_fn(output, targets)
                 total_loss += loss.item()
                 count += 1
 
