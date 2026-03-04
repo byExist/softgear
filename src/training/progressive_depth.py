@@ -75,7 +75,11 @@ class ProgressiveDepthScheduler:
         self._val_losses.clear()
 
     def should_advance(self, val_loss: float) -> bool:
-        """Check if validation loss has plateaued using moving average."""
+        """Check if validation loss has genuinely plateaued.
+
+        Only advance when val_loss is stable (not improving AND not worsening).
+        Prevents advancing on overfitted models where val_loss is still rising.
+        """
         if self._phase >= self._max_depth:
             return False
 
@@ -85,8 +89,12 @@ class ProgressiveDepthScheduler:
 
         recent = self._val_losses[-self.patience :]
         previous = self._val_losses[-self.patience * 2 : -self.patience]
-        improvement = sum(previous) / len(previous) - sum(recent) / len(recent)
-        return improvement < self.advance_threshold
+        avg_recent = sum(recent) / len(recent)
+        avg_previous = sum(previous) / len(previous)
+        change = avg_previous - avg_recent
+
+        # Only advance if loss is genuinely plateaued (small absolute change)
+        return abs(change) < self.advance_threshold
 
     def state_dict(self) -> dict[str, Any]:
         return {

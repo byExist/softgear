@@ -120,6 +120,15 @@ def test_should_advance():
         scheduler2.should_advance(loss)
     assert scheduler2.should_advance(0.5)  # previous avg ≈ recent avg → advance
 
+    # Reset: worsening val_loss should NOT advance (overfitting scenario)
+    _, scheduler3 = _make_scheduler()
+    scheduler3.advance_phase()
+
+    # Feed losses that get worse then plateau at a bad value
+    for loss in [1.0, 1.0, 1.0, 1.0, 1.0, 1.5, 1.5, 1.5, 1.5]:
+        scheduler3.should_advance(loss)
+    assert not scheduler3.should_advance(1.5)  # worsened → don't advance
+
 
 def test_active_depth():
     """GearChain should only run k rounds in phase k."""
