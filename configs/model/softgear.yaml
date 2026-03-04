@@ -1,8 +1,8 @@
 name: softgear
 vocab_size: 10
-hidden_dim: 256
+hidden_dim: 128
 num_heads: 8
-ffn_dim: 1024
+ffn_dim: 512
 gear_sizes: [1, 2, 3, 4]
 dropout: 0.1
 reentry: true
