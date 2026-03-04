@@ -11,7 +11,7 @@ class ModelOutput:
 
 
 class BaseModel(nn.Module):
-    """Common interface for SoftGearModel and TRMWrapper."""
+    """Common interface for SoftGear models."""
 
     def forward(self, x: Tensor) -> ModelOutput:
         raise NotImplementedError

@@ -1,0 +1,4 @@
+name: arc
+path: data/arc-agi
+batch_size: 32
+num_workers: 4
