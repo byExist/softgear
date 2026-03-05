@@ -81,6 +81,7 @@ class Trainer:
             patience=tcfg.patience,
             hardening=tcfg.hardening,
             binary_factor=tcfg.binary_factor,
+            min_delta=tcfg.min_delta,
         )
         ema_alphas = [tcfg.ema_alpha] * cfg.model.num_gears
         self.ema = DifferentialEMA(model, ema_alphas)

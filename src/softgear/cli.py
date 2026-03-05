@@ -39,6 +39,7 @@ def train(
     lr: Annotated[float, typer.Option(help="Learning rate")] = 3e-4,
     batch_size: Annotated[int, typer.Option(help="Batch size")] = 64,
     patience: Annotated[int, typer.Option(help="Epochs before advancing phase")] = 5,
+    min_delta: Annotated[float, typer.Option(help="Minimum loss improvement to reset patience")] = 1e-4,
     weight_decay: Annotated[float, typer.Option(help="Weight decay")] = 0.01,
     ema_alpha: Annotated[float, typer.Option(help="EMA decay rate (uniform for all gears)")] = 0.995,
     gradient_clip: Annotated[float, typer.Option(help="Gradient clip norm")] = 1.0,
@@ -87,7 +88,7 @@ def train(
         training=TrainingConfig(
             lr=lr, weight_decay=weight_decay, hardening=hardening,
             lr_decay=lr_decay, binary_factor=binary_factor,
-            patience=patience, gradient_clip=gradient_clip,
+            patience=patience, min_delta=min_delta, gradient_clip=gradient_clip,
             ema_alpha=ema_alpha,
             checkpoint_dir=str(checkpoint_dir),
         ),

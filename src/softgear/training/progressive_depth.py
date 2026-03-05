@@ -38,6 +38,7 @@ class ProgressiveDepthScheduler:
         patience: int = 5,
         hardening: str = "gradual",
         binary_factor: float = 0.4,
+        min_delta: float = 1e-4,
     ):
         if hardening not in self.STRATEGIES:
             raise ValueError(f"Unknown hardening strategy: {hardening!r}")
@@ -50,6 +51,7 @@ class ProgressiveDepthScheduler:
         self.patience = patience
         self.hardening = hardening
         self.binary_factor = binary_factor
+        self.min_delta = min_delta
         self._phase = 0
         self._val_losses: list[float] = []
 
@@ -122,8 +124,15 @@ class ProgressiveDepthScheduler:
         if len(self._val_losses) <= self.patience:
             return False
 
-        best_idx = min(range(len(self._val_losses)), key=self._val_losses.__getitem__)
-        epochs_since_best = len(self._val_losses) - 1 - best_idx
+        # Find last epoch with a meaningful improvement (> min_delta)
+        effective_best = self._val_losses[0]
+        last_improvement_idx = 0
+        for i, v in enumerate(self._val_losses):
+            if v < effective_best - self.min_delta:
+                effective_best = v
+                last_improvement_idx = i
+
+        epochs_since_best = len(self._val_losses) - 1 - last_improvement_idx
         return epochs_since_best >= self.patience
 
     def state_dict(self) -> dict[str, Any]:

@@ -125,6 +125,29 @@ def test_should_advance_respects_patience():
     assert scheduler.should_advance(0.85) is True
 
 
+def test_min_delta_ignores_tiny_improvements():
+    model = _make_model()
+    non_gear_params = [
+        p for n, p in model.named_parameters()
+        if not n.startswith("chain.gears.")
+    ]
+    optimizer = AdamW(non_gear_params, lr=1e-3)
+    scheduler = ProgressiveDepthScheduler(
+        model, optimizer, _gear_factory, NUM_GEARS,
+        base_lr=1e-3, patience=3, min_delta=0.01,
+    )
+    scheduler.advance_phase()
+
+    # Meaningful improvement resets patience
+    scheduler.should_advance(1.0)
+    scheduler.should_advance(0.5)  # big drop, resets patience
+
+    # Tiny improvements below min_delta should NOT reset patience
+    scheduler.should_advance(0.499)
+    scheduler.should_advance(0.498)
+    assert scheduler.should_advance(0.497) is True  # patience exhausted
+
+
 def test_state_dict_roundtrip():
     _, _, scheduler = _make_scheduler()
     scheduler.advance_phase()

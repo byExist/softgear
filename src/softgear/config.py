@@ -36,6 +36,7 @@ class TrainingConfig:
     binary_factor: float = 0.4
     ema_alpha: float = 0.995
     patience: int = 5
+    min_delta: float = 1e-4
     gradient_clip: float = 1.0
     checkpoint_dir: str = "checkpoints"
 
