@@ -122,11 +122,11 @@ def train(
     """Train a SoftGear model with progressive depth."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-    from src.data.sudoku import build_sudoku_loaders
-    from src.evaluation.sudoku_metrics import sudoku_accuracy
-    from src.tasks.sudoku import build_sudoku_model, make_gear_factory
-    from src.training.trainer import Trainer
-    from src.utils.device import get_device
+    from softgear.tasks.sudoku.data import build_sudoku_loaders
+    from softgear.tasks.sudoku.metrics import sudoku_accuracy
+    from softgear.tasks.sudoku.model import build_sudoku_model, make_gear_factory
+    from softgear.training.trainer import Trainer
+    from softgear.utils.device import get_device
 
     cfg = _build_config(
         hidden_dim=hidden_dim,
@@ -187,10 +187,10 @@ def evaluate(
     """Evaluate a trained SoftGear model."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-    from src.data.sudoku import build_sudoku_loaders
-    from src.evaluation.sudoku_metrics import sudoku_accuracy
-    from src.tasks.sudoku import build_sudoku_model, mount_all_gears
-    from src.utils.device import get_device
+    from softgear.tasks.sudoku.data import build_sudoku_loaders
+    from softgear.tasks.sudoku.metrics import sudoku_accuracy
+    from softgear.tasks.sudoku.model import build_sudoku_model, mount_all_gears
+    from softgear.utils.device import get_device
 
     cfg = _build_config(
         hidden_dim=hidden_dim,

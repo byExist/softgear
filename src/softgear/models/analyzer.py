@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from torch import Tensor, nn
 
-from src.models.chain import Chain
+from softgear.models.chain import Chain
 
 
 @dataclass

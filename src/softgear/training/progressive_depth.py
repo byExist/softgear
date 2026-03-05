@@ -5,8 +5,8 @@ from typing import Any
 
 from torch.optim import Optimizer
 
-from src.models.analyzer import Analyzer
-from src.models.gear import Gear
+from softgear.models.analyzer import Analyzer
+from softgear.models.gear import Gear
 
 
 class ProgressiveDepthScheduler:

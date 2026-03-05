@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from torch import Tensor, nn
 
-from src.models.gear import Gear
+from softgear.models.gear import Gear
 
 
 class Chain(nn.Module):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from torch import Tensor
 
-from src.models.analyzer import Analyzer
+from softgear.models.analyzer import Analyzer
 
 
 class DifferentialEMA:

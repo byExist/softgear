@@ -6,9 +6,9 @@ import torch
 from omegaconf import DictConfig
 from torch import Tensor, nn
 
-from src.models.analyzer import Analyzer
-from src.models.chain import Chain
-from src.models.gear import Gear
+from softgear.models.analyzer import Analyzer
+from softgear.models.chain import Chain
+from softgear.models.gear import Gear
 
 SEQ_LEN = 81
 

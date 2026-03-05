@@ -18,7 +18,7 @@ dependencies = [
 softgear = "cli:app"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src", "cli.py"]
+packages = ["src/softgear", "cli.py"]
 
 [build-system]
 requires = ["hatchling"]

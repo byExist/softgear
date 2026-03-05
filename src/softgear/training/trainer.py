@@ -13,10 +13,10 @@ from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
-from src.models.analyzer import Analyzer
-from src.models.gear import Gear
-from src.training.differential_ema import DifferentialEMA
-from src.training.progressive_depth import ProgressiveDepthScheduler
+from softgear.models.analyzer import Analyzer
+from softgear.models.gear import Gear
+from softgear.training.differential_ema import DifferentialEMA
+from softgear.training.progressive_depth import ProgressiveDepthScheduler
 
 try:
     import wandb
