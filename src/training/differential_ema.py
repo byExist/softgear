@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from torch import Tensor
 
-from src.models.softgear import SoftGearModel
+from src.models.analyzer import Analyzer
 
 
 class DifferentialEMA:
@@ -10,39 +10,49 @@ class DifferentialEMA:
 
     Smaller gears (run more often) get lower alpha for faster adaptation.
     Larger gears (run less often) get higher alpha for stability.
+
+    Gears are discovered lazily via _sync_gears() since they are
+    mounted progressively during training.
     """
 
-    def __init__(self, model: SoftGearModel, alphas: list[float]):
+    def __init__(self, model: Analyzer, alphas: list[float]):
         self.model = model
-        gears = list(model.gear_chain.gears)
-        if len(alphas) != len(gears):
-            raise ValueError(
-                f"alphas length ({len(alphas)}) must match gear count ({len(gears)})"
-            )
         self.alphas = alphas
-
-        # Build mapping: param_name -> alpha
-        self._param_alpha: dict[str, float] = {}
-        for gear_idx, gear in enumerate(gears):
-            prefix = f"gear_chain.gears.{gear_idx}."
-            for name, _ in gear.named_parameters():
-                full_name = prefix + name
-                self._param_alpha[full_name] = alphas[gear_idx]
-
-        # Initialize shadow params as copies of current params
         self._shadow: dict[str, Tensor] = {}
-        for name, param in model.named_parameters():
-            if name in self._param_alpha:
-                self._shadow[name] = param.data.clone()
-
+        self._param_alpha: dict[str, float] = {}
+        self._registered = 0
         self._backup: dict[str, Tensor] = {}
+
+    def _sync_gears(self) -> None:
+        """Discover newly mounted gears and register their parameters."""
+        gears = list(self.model.chain.gears)
+        for i in range(self._registered, len(gears)):
+            if i >= len(self.alphas):
+                raise ValueError(f"No alpha for gear {i}")
+            prefix = f"chain.gears.{i}."
+            for name, param in gears[i].named_parameters():
+                full = prefix + name
+                self._param_alpha[full] = self.alphas[i]
+                self._shadow[full] = param.data.clone()
+        self._registered = len(gears)
 
     def update(self) -> None:
         """Update shadow parameters: shadow = alpha * shadow + (1 - alpha) * param."""
+        self._sync_gears()
         for name, param in self.model.named_parameters():
             if name in self._shadow:
                 alpha = self._param_alpha[name]
                 self._shadow[name].mul_(alpha).add_(param.data, alpha=1.0 - alpha)
+
+    def reset_shadows(self) -> None:
+        """Reset shadow parameters to current model parameters.
+
+        Call after restoring model to a previous state (e.g. phase-best)
+        so that EMA shadows match the restored weights.
+        """
+        for name, param in self.model.named_parameters():
+            if name in self._shadow:
+                self._shadow[name] = param.data.clone()
 
     def apply_shadow(self) -> None:
         """Replace model parameters with shadow parameters for evaluation."""

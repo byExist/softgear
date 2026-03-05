@@ -24,7 +24,7 @@ def main(cfg: DictConfig) -> None:
     from omegaconf import OmegaConf
 
     from src.data.sudoku import build_sudoku_loaders
-    from src.models.sudoku_model import build_sudoku_model
+    from src.tasks.sudoku import build_sudoku_model
     from src.training.trainer import SoftGearTrainer
     from src.utils.device import get_device
 

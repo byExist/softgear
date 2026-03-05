@@ -65,13 +65,13 @@ def build_sudoku_loaders(
         batch_size=cfg.data.batch_size,
         shuffle=True,
         num_workers=cfg.data.num_workers,
-        pin_memory=True,
+        pin_memory=torch.cuda.is_available(),
     )
     val_loader = DataLoader(
         val_dataset,
         batch_size=cfg.data.batch_size,
         shuffle=False,
         num_workers=cfg.data.num_workers,
-        pin_memory=True,
+        pin_memory=torch.cuda.is_available(),
     )
     return train_loader, val_loader

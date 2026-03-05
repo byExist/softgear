@@ -1,59 +1,33 @@
-from torch import Tensor, nn
+from torch import nn
 
 
-class _Layer(nn.Module):
-    """Pre-LN Transformer block: internal to Gear."""
+class Gear(nn.TransformerEncoderLayer):
+    """Single Pre-LN Transformer layer (= one gear).
 
-    def __init__(
-        self,
-        hidden_dim: int,
-        num_heads: int,
-        ffn_dim: int,
-        dropout: float = 0.1,
-    ):
-        super().__init__()
-        self.norm1 = nn.LayerNorm(hidden_dim)
-        self.attn = nn.MultiheadAttention(
-            hidden_dim, num_heads, dropout=dropout, batch_first=True
-        )
-        self.norm2 = nn.LayerNorm(hidden_dim)
-        self.ffn = nn.Sequential(
-            nn.Linear(hidden_dim, ffn_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(ffn_dim, hidden_dim),
-            nn.Dropout(dropout),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        normed = self.norm1(x)
-        attn_out, _ = self.attn(normed, normed, normed)
-        x = x + attn_out
-        x = x + self.ffn(self.norm2(x))
-        return x
-
-
-class Gear(nn.Module):
-    """A single gear: resolution layers of Pre-LN Transformer.
-
-    Low resolution (few layers) = coarse transform, high resolution = fine transform.
+    With identity_init=True, output projections are zeroed so that
+    the layer acts as identity (x + 0 = x), preserving existing
+    block behavior when a new gear is appended.
     """
 
     def __init__(
         self,
-        resolution: int,
         hidden_dim: int,
         num_heads: int,
         ffn_dim: int,
         dropout: float = 0.1,
+        identity_init: bool = False,
     ):
-        super().__init__()
-        self.resolution = resolution
-        self.layers = nn.ModuleList(
-            [_Layer(hidden_dim, num_heads, ffn_dim, dropout) for _ in range(resolution)]
+        super().__init__(  # type: ignore[reportCallIssue]
+            d_model=hidden_dim,
+            nhead=num_heads,
+            dim_feedforward=ffn_dim,
+            dropout=dropout,
+            batch_first=True,
+            norm_first=True,
         )
 
-    def forward(self, x: Tensor) -> Tensor:
-        for layer in self.layers:
-            x = layer(x)
-        return x
+        if identity_init:
+            nn.init.zeros_(self.self_attn.out_proj.weight)
+            nn.init.zeros_(self.self_attn.out_proj.bias)
+            nn.init.zeros_(self.linear2.weight)
+            nn.init.zeros_(self.linear2.bias)

@@ -1,69 +1,64 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Any
 
 from torch.optim import Optimizer
 
-from src.models.softgear import SoftGearModel
+from src.models.analyzer import Analyzer
+from src.models.gear import Gear
 
 
 class ProgressiveDepthScheduler:
-    """Progressively activate gears during training.
+    """Progressively mount gears during training.
 
-    Phase 1: only G1 trains, active_depth=1
-    Phase 2: G1(lr*decay) + G2(lr), active_depth=2
+    Phase 1: mount G1, train with lr
+    Phase 2: mount G2 with lr, decay G1 lr by lr_decay
     ...
-    Phase D: all gears active
+    Phase D: all gears mounted
     """
 
     def __init__(
         self,
-        model: SoftGearModel,
+        model: Analyzer,
         optimizer: Optimizer,
+        gear_factory: Callable[[int], Gear],
+        num_gears: int,
         base_lr: float = 3e-4,
         lr_decay: float = 0.5,
-        advance_threshold: float = 0.001,
         patience: int = 5,
     ):
         self.model = model
         self.optimizer = optimizer
+        self._gear_factory = gear_factory
+        self._num_gears = num_gears
         self.base_lr = base_lr
         self.lr_decay = lr_decay
-        self.advance_threshold = advance_threshold
         self.patience = patience
         self._phase = 0
         self._val_losses: list[float] = []
-        self._max_depth = model.gear_chain.depth
-
-        # Freeze all gears initially
-        for gear in model.gear_chain.gears:
-            for param in gear.parameters():
-                param.requires_grad = False
-
-        # Set active_depth to 0 rounds (no forward until first advance)
-        model.gear_chain.active_depth = 0
 
     @property
-    def max_depth(self) -> int:
-        return self._max_depth
+    def max_rounds(self) -> int:
+        return self._num_gears
 
     def current_phase(self) -> int:
         return self._phase
 
     def advance_phase(self) -> None:
-        """Activate the next gear and decay lr of previous gears."""
-        if self._phase >= self._max_depth:
+        """Create and mount the next gear, decay lr of existing gears."""
+        if self._phase >= self._num_gears:
             return
 
-        # Decay lr of existing param groups (skip non-gear groups like embedding)
+        # Decay lr of existing gear param groups
         for group in self.optimizer.param_groups:
             if group.get("is_gear", False):
                 group["lr"] *= self.lr_decay
 
-        # Unfreeze the new gear
-        new_gear = self.model.gear_chain.gears[self._phase]
-        for param in new_gear.parameters():
-            param.requires_grad = True
+        # Create and mount new gear
+        new_gear = self._gear_factory(self._phase)
+        new_gear.to(next(self.model.parameters()).device)
+        self.model.chain.mount(new_gear)
 
         # Add new gear params to optimizer
         self.optimizer.add_param_group(
@@ -71,30 +66,22 @@ class ProgressiveDepthScheduler:
         )
 
         self._phase += 1
-        self.model.gear_chain.active_depth = self._phase
         self._val_losses.clear()
 
     def should_advance(self, val_loss: float) -> bool:
-        """Check if validation loss has genuinely plateaued.
+        """Advance when val_loss hasn't improved for `patience` epochs.
 
-        Only advance when val_loss is stable (not improving AND not worsening).
-        Prevents advancing on overfitted models where val_loss is still rising.
+        Tracks the best val_loss seen in this phase.  If `patience`
+        epochs pass without beating it, the gear has stopped improving
+        and we should mount the next one (or finish training).
         """
-        if self._phase >= self._max_depth:
-            return False
-
         self._val_losses.append(val_loss)
-        if len(self._val_losses) < self.patience * 2:
+        if len(self._val_losses) <= self.patience:
             return False
 
-        recent = self._val_losses[-self.patience :]
-        previous = self._val_losses[-self.patience * 2 : -self.patience]
-        avg_recent = sum(recent) / len(recent)
-        avg_previous = sum(previous) / len(previous)
-        change = avg_previous - avg_recent
-
-        # Only advance if loss is genuinely plateaued (small absolute change)
-        return abs(change) < self.advance_threshold
+        best_idx = min(range(len(self._val_losses)), key=self._val_losses.__getitem__)
+        epochs_since_best = len(self._val_losses) - 1 - best_idx
+        return epochs_since_best >= self.patience
 
     def state_dict(self) -> dict[str, Any]:
         return {
@@ -104,7 +91,7 @@ class ProgressiveDepthScheduler:
 
     def load_state_dict(self, state: dict[str, Any]) -> None:
         target_phase = state["phase"]
-        # Replay phase advances to restore optimizer state
+        # Replay phase advances to mount gears and restore optimizer state
         while self._phase < target_phase:
             self.advance_phase()
         self._val_losses = list(state["val_losses"])

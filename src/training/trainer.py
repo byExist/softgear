@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 import logging
 from pathlib import Path
 from typing import Any
@@ -11,7 +12,8 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
 from src.evaluation.sudoku_metrics import sudoku_accuracy
-from src.models.softgear import SoftGearModel
+from src.models.analyzer import Analyzer
+from src.tasks.sudoku import make_gear_factory
 from src.training.deep_supervision import DeepSupervisionLoss
 from src.training.differential_ema import DifferentialEMA
 from src.training.progressive_depth import ProgressiveDepthScheduler
@@ -30,7 +32,7 @@ class SoftGearTrainer:
     def __init__(
         self,
         cfg: DictConfig,
-        model: SoftGearModel,
+        model: Analyzer,
         train_loader: DataLoader[Any],
         val_loader: DataLoader[Any],
         device: torch.device | None = None,
@@ -49,7 +51,7 @@ class SoftGearTrainer:
         non_gear_params = [
             p
             for n, p in model.named_parameters()
-            if not n.startswith("gear_chain.gears.")
+            if not n.startswith("chain.gears.")
         ]
         self.optimizer = AdamW(
             non_gear_params,
@@ -58,18 +60,20 @@ class SoftGearTrainer:
         )
 
         self.loss_fn = DeepSupervisionLoss(nn.CrossEntropyLoss(), alpha=tcfg.alpha)
+
+        gear_factory = make_gear_factory(cfg.model)
         self.progressive = ProgressiveDepthScheduler(
             model,
             self.optimizer,
+            gear_factory,
+            cfg.model.num_gears,
             base_lr=tcfg.lr,
             lr_decay=tcfg.lr_decay,
-            advance_threshold=tcfg.advance_threshold,
             patience=tcfg.patience,
         )
         self.ema = DifferentialEMA(model, list(tcfg.ema_alphas))
 
         self.gradient_clip = tcfg.gradient_clip
-        self.max_epochs_per_phase = tcfg.max_epochs_per_phase
 
         # Resume state (set by load_checkpoint)
         self._resume_phase = 0
@@ -93,9 +97,9 @@ class SoftGearTrainer:
             checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
         best_val_loss = self._best_val_loss
-        depth = self.progressive.max_depth
+        num_phases = self.progressive.max_rounds
 
-        for phase in range(1, depth + 1):
+        for phase in range(1, num_phases + 1):
             if phase <= self._resume_phase:
                 # Already restored by load_checkpoint; skip advance
                 if phase < self._resume_phase:
@@ -106,9 +110,13 @@ class SoftGearTrainer:
                 self.progressive.advance_phase()
                 epoch_start = 0
 
-            log.info("Phase %d/%d started (epoch_start=%d)", phase, depth, epoch_start)
+            log.info("Phase %d/%d started (epoch_start=%d)", phase, num_phases, epoch_start)
 
-            for epoch in range(epoch_start, self.max_epochs_per_phase):
+            # Track per-phase best for restore-on-advance
+            phase_best_val_loss = float("inf")
+            phase_best_model_state: dict[str, Tensor] | None = None
+
+            for epoch in itertools.count(epoch_start):
                 train_loss = self._train_epoch()
                 val_loss, val_metrics = self._validate()
                 self.ema.update()
@@ -124,6 +132,12 @@ class SoftGearTrainer:
                     val_metrics["blank_accuracy"],
                     val_metrics["puzzle_accuracy"],
                 )
+
+                if val_loss < phase_best_val_loss:
+                    phase_best_val_loss = val_loss
+                    phase_best_model_state = {
+                        k: v.clone() for k, v in self.model.state_dict().items()
+                    }
 
                 if self._wandb_run is not None:
                     self._wandb_run.log({
@@ -152,7 +166,19 @@ class SoftGearTrainer:
                         log.info("New best val_loss=%.4f saved", best_val_loss)
 
                 if self.progressive.should_advance(val_loss):
-                    log.info("Phase %d converged, advancing", phase)
+                    # Restore to phase-best state before advancing
+                    if phase_best_model_state is not None:
+                        self.model.load_state_dict(phase_best_model_state)
+                        self.ema.reset_shadows()
+                        log.info(
+                            "Restored to phase %d best (val_loss=%.4f)",
+                            phase,
+                            phase_best_val_loss,
+                        )
+                    if phase < num_phases:
+                        log.info("Phase %d converged, advancing", phase)
+                    else:
+                        log.info("Phase %d converged, training complete", phase)
                     break
 
         # Reset resume state
@@ -239,9 +265,10 @@ class SoftGearTrainer:
 
     def load_checkpoint(self, path: str | Path) -> None:
         ckpt = torch.load(path, map_location=self.device, weights_only=False)
-        self.model.load_state_dict(ckpt["model_state_dict"])
-        # Restore progressive first (replays phase advances to match param groups)
+
+        # Progressive first: mounts gears so model structure matches checkpoint
         self.progressive.load_state_dict(ckpt["progressive_state"])
+        self.model.load_state_dict(ckpt["model_state_dict"])
         self.optimizer.load_state_dict(ckpt["optimizer_state_dict"])  # type: ignore[reportUnknownMemberType]
         self.ema.load_state_dict(ckpt["ema_state"])  # type: ignore[reportUnknownMemberType]
 

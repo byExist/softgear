@@ -3,9 +3,9 @@ vocab_size: 10
 hidden_dim: 128
 num_heads: 8
 ffn_dim: 512
-gear_resolutions: [1, 2, 3, 4]
+num_gears: 7
+num_repeats: 4
 dropout: 0.1
-reentry: true
 adaptive_halt:
   enabled: true
   delta: 0.01

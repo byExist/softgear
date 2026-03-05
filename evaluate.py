@@ -11,12 +11,13 @@ log = logging.getLogger(__name__)
 def main(cfg: DictConfig) -> None:
     from src.data.sudoku import build_sudoku_loaders
     from src.evaluation.sudoku_metrics import sudoku_accuracy
-    from src.models.sudoku_model import build_sudoku_model
+    from src.tasks.sudoku import build_sudoku_model, mount_all_gears
     from src.utils.device import get_device
 
     device = get_device()
 
     model = build_sudoku_model(cfg.model)
+    mount_all_gears(model, cfg.model)
     ckpt = torch.load(cfg.checkpoint, map_location=device, weights_only=False)
     model.load_state_dict(ckpt["model_state_dict"])
     model.to(device)

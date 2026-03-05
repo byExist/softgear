@@ -1,7 +1,7 @@
 import torch
 from torch import Tensor, nn
 
-from src.models.base import ModelOutput
+from src.models.analyzer import ModelOutput
 
 
 class DeepSupervisionLoss(nn.Module):

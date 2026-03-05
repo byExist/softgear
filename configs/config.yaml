@@ -6,5 +6,5 @@ defaults:
 
 seed: 42
 wandb:
-  project: softgear
+  project: null
   entity: null
