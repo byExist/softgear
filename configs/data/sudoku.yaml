@@ -1,5 +1,0 @@
-name: sudoku
-path: data/sudoku-extreme
-batch_size: 64
-num_workers: 4
-max_samples: null
