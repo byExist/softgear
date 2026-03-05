@@ -131,18 +131,22 @@ class Trainer:
             phase_best_model_state: dict[str, Tensor] | None = None
 
             for epoch in itertools.count(epoch_start):
-                train_loss = self._train_epoch()
+                train_loss, grad_norms = self._train_epoch()
                 val_loss, val_metrics = self._validate()
                 self.ema.update()
 
                 metrics_str = " ".join(f"{k}={v:.4f}" for k, v in val_metrics.items())
+                grad_str = " ".join(
+                    f"{k}={v:.4f}" for k, v in sorted(grad_norms.items())
+                )
                 log.info(
-                    "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f %s",
+                    "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f %s %s",
                     phase,
                     epoch,
                     train_loss,
                     val_loss,
                     metrics_str,
+                    grad_str,
                 )
 
                 if val_loss < phase_best_val_loss:
@@ -159,6 +163,7 @@ class Trainer:
                             "train_loss": train_loss,
                             "val_loss": val_loss,
                             **val_metrics,
+                            **grad_norms,
                         }
                     )
 
@@ -224,10 +229,30 @@ class Trainer:
     def _step_limit_reached(self) -> bool:
         return self._step_limit is not None and self._global_step >= self._step_limit
 
-    def _train_epoch(self) -> float:
+    def _collect_gradient_norms(self) -> dict[str, float]:
+        """Collect L2 gradient norms per component (before clipping)."""
+        norms: dict[str, float] = {}
+
+        for i, gear in enumerate(self.model.chain.gears):
+            total = 0.0
+            for p in gear.parameters():
+                if p.grad is not None:
+                    total += p.grad.data.norm(2).item() ** 2
+            norms[f"grad_norm/gear_{i}"] = total**0.5
+
+        non_gear_total = 0.0
+        for n, p in self.model.named_parameters():
+            if not n.startswith("chain.gears.") and p.grad is not None:
+                non_gear_total += p.grad.data.norm(2).item() ** 2
+        norms["grad_norm/non_gear"] = non_gear_total**0.5
+
+        return norms
+
+    def _train_epoch(self) -> tuple[float, dict[str, float]]:
         self.model.train()
         total_loss = 0.0
         count = 0
+        grad_norm_sums: dict[str, float] = {}
 
         for batch in self.train_loader:
             inputs: Tensor = batch[0].to(self.device)
@@ -238,6 +263,11 @@ class Trainer:
 
             self.optimizer.zero_grad()
             loss.backward()  # type: ignore[reportUnknownMemberType]
+
+            step_norms = self._collect_gradient_norms()
+            for k, v in step_norms.items():
+                grad_norm_sums[k] = grad_norm_sums.get(k, 0.0) + v
+
             if self.gradient_clip > 0:
                 nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
             self.optimizer.step()  # type: ignore[reportUnknownMemberType]
@@ -246,7 +276,8 @@ class Trainer:
             count += 1
             self._global_step += 1
 
-        return total_loss / max(count, 1)
+        avg_norms = {k: v / max(count, 1) for k, v in grad_norm_sums.items()}
+        return total_loss / max(count, 1), avg_norms
 
     def _validate(self) -> tuple[float, dict[str, float]]:
         self.model.eval()
