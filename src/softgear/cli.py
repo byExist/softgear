@@ -43,6 +43,7 @@ def train(
     weight_decay: Annotated[float, typer.Option(help="Weight decay")] = 0.01,
     ema_alpha: Annotated[float, typer.Option(help="EMA decay rate (uniform for all gears)")] = 0.995,
     gradient_clip: Annotated[float, typer.Option(help="Gradient clip norm")] = 1.0,
+    max_total_steps: Annotated[Optional[int], typer.Option(help="Max total training steps (None=unlimited)")] = None,
     seed: Annotated[int, typer.Option(help="Random seed")] = 42,
     # model
     hidden_dim: Annotated[int, typer.Option(help="Hidden dimension")] = 128,
@@ -89,7 +90,7 @@ def train(
             lr=lr, weight_decay=weight_decay, hardening=hardening,
             lr_decay=lr_decay, binary_factor=binary_factor,
             patience=patience, min_delta=min_delta, gradient_clip=gradient_clip,
-            ema_alpha=ema_alpha,
+            ema_alpha=ema_alpha, max_total_steps=max_total_steps,
             checkpoint_dir=str(checkpoint_dir),
         ),
         seed=seed,

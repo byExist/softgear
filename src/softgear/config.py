@@ -38,6 +38,7 @@ class TrainingConfig:
     patience: int = 5
     min_delta: float = 1e-4
     gradient_clip: float = 1.0
+    max_total_steps: int | None = None
     checkpoint_dir: str = "checkpoints"
 
 

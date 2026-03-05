@@ -85,6 +85,8 @@ class Trainer:
         self.ema = DifferentialEMA(model, ema_alphas)
 
         self.gradient_clip = tcfg.gradient_clip
+        self._step_limit = tcfg.max_total_steps
+        self._global_step = 0
 
         # Resume state (set by load_checkpoint)
         self._resume_phase = 0
@@ -177,7 +179,7 @@ class Trainer:
                         )
                         log.info("New best val_loss=%.4f saved", best_val_loss)
 
-                if self.progressive.check_convergence(val_loss):
+                if self._should_stop(val_loss):
                     # Restore to phase-best state before advancing
                     if phase_best_model_state is not None:
                         self.model.load_state_dict(phase_best_model_state)
@@ -187,11 +189,23 @@ class Trainer:
                             phase,
                             phase_best_val_loss,
                         )
+                    if self._step_limit_reached():
+                        log.info(
+                            "Step limit reached (%d steps), training complete",
+                            self._global_step,
+                        )
+                        break
                     if phase < num_phases:
                         log.info("Phase %d converged, advancing", phase)
                     else:
                         log.info("Phase %d converged, training complete", phase)
                     break
+            else:
+                # epoch loop completed without break; continue to next phase
+                continue
+            # step limit reached: break outer phase loop too
+            if self._step_limit_reached():
+                break
 
         # Reset resume state
         self._resume_phase = 0
@@ -199,6 +213,16 @@ class Trainer:
 
         if self._wandb_run is not None:
             self._wandb_run.finish()
+
+    def _should_stop(self, val_loss: float) -> bool:
+        if self.progressive.check_convergence(val_loss):
+            return True
+        if self._step_limit_reached():
+            return True
+        return False
+
+    def _step_limit_reached(self) -> bool:
+        return self._step_limit is not None and self._global_step >= self._step_limit
 
     def _train_epoch(self) -> float:
         self.model.train()
@@ -220,6 +244,7 @@ class Trainer:
 
             total_loss += loss.item()
             count += 1
+            self._global_step += 1
 
         return total_loss / max(count, 1)
 
@@ -272,6 +297,7 @@ class Trainer:
                 "phase": phase,
                 "epoch": epoch,
                 "best_val_loss": best_val_loss,
+                "global_step": self._global_step,
             },  # type: ignore[reportUnknownArgumentType]
             path,
         )
@@ -289,9 +315,11 @@ class Trainer:
         self._resume_phase = ckpt.get("phase", 0)
         self._resume_epoch = ckpt.get("epoch", 0) + 1  # resume from next epoch
         self._best_val_loss = ckpt.get("best_val_loss", float("inf"))
+        self._global_step = ckpt.get("global_step", 0)
         log.info(
-            "Resumed from phase %d epoch %d (best_val_loss=%.4f)",
+            "Resumed from phase %d epoch %d step %d (best_val_loss=%.4f)",
             self._resume_phase,
             self._resume_epoch,
+            self._global_step,
             self._best_val_loss,
         )
