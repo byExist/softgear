@@ -4,8 +4,4 @@ hidden_dim: 128
 num_heads: 8
 ffn_dim: 512
 num_gears: 7
-num_repeats: 4
 dropout: 0.1
-adaptive_halt:
-  enabled: true
-  delta: 0.01

@@ -10,8 +10,6 @@ from src.models.chain import Chain
 @dataclass
 class ModelOutput:
     logits: Tensor
-    intermediate_logits: list[Tensor] | None = None
-    halt_round: int | None = None
 
 
 class Analyzer(nn.Module):
@@ -32,21 +30,9 @@ class Analyzer(nn.Module):
 
     def forward(self, x: Tensor) -> ModelOutput:
         h = self.encoder(x)
-        final, round_outputs = self.chain(h)
-        logits = self.decoder(self.norm(final))
-        intermediate_logits = [
-            self.decoder(self.norm(r)) for r in round_outputs[:-1]
-        ]
-        halt_round = (
-            len(round_outputs)
-            if not self.training and len(round_outputs) < self.chain.num_repeats
-            else None
-        )
-        return ModelOutput(
-            logits=logits,
-            intermediate_logits=intermediate_logits,
-            halt_round=halt_round,
-        )
+        h = self.chain(h)
+        logits = self.decoder(self.norm(h))
+        return ModelOutput(logits=logits)
 
     def parameter_count(self) -> int:
         return sum(p.numel() for p in self.parameters())

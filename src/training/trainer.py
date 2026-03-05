@@ -2,19 +2,19 @@ from __future__ import annotations
 
 import itertools
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import torch
 from omegaconf import DictConfig, OmegaConf
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
-from src.evaluation.sudoku_metrics import sudoku_accuracy
 from src.models.analyzer import Analyzer
-from src.tasks.sudoku import make_gear_factory
-from src.training.deep_supervision import DeepSupervisionLoss
+from src.models.gear import Gear
 from src.training.differential_ema import DifferentialEMA
 from src.training.progressive_depth import ProgressiveDepthScheduler
 
@@ -25,9 +25,11 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+MetricsFn = Callable[[Tensor, Tensor, Tensor], dict[str, float]]
 
-class SoftGearTrainer:
-    """Training loop integrating progressive depth, deep supervision, and differential EMA."""
+
+class Trainer:
+    """Task-independent training loop with progressive depth and differential EMA."""
 
     def __init__(
         self,
@@ -35,12 +37,15 @@ class SoftGearTrainer:
         model: Analyzer,
         train_loader: DataLoader[Any],
         val_loader: DataLoader[Any],
+        gear_factory: Callable[[int], Gear],
+        metrics_fn: MetricsFn,
         device: torch.device | None = None,
     ):
         self.cfg = cfg
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.metrics_fn = metrics_fn
         self.device = device or torch.device("cpu")
 
         self.model.to(self.device)
@@ -59,9 +64,8 @@ class SoftGearTrainer:
             weight_decay=tcfg.weight_decay,
         )
 
-        self.loss_fn = DeepSupervisionLoss(nn.CrossEntropyLoss(), alpha=tcfg.alpha)
+        self.loss_fn = nn.CrossEntropyLoss()
 
-        gear_factory = make_gear_factory(cfg.model)
         self.progressive = ProgressiveDepthScheduler(
             model,
             self.optimizer,
@@ -70,8 +74,13 @@ class SoftGearTrainer:
             base_lr=tcfg.lr,
             lr_decay=tcfg.lr_decay,
             patience=tcfg.patience,
+            hardening=tcfg.get("hardening", "gradual"),
+            binary_factor=tcfg.get("binary_factor", 0.4),
         )
-        self.ema = DifferentialEMA(model, list(tcfg.ema_alphas))
+        ema_alphas = list(tcfg.get("ema_alphas", []))
+        if len(ema_alphas) != cfg.model.num_gears:
+            ema_alphas = np.linspace(0.99, 0.999, cfg.model.num_gears).tolist()
+        self.ema = DifferentialEMA(model, ema_alphas)
 
         self.gradient_clip = tcfg.gradient_clip
 
@@ -121,16 +130,16 @@ class SoftGearTrainer:
                 val_loss, val_metrics = self._validate()
                 self.ema.update()
 
+                metrics_str = " ".join(
+                    f"{k}={v:.4f}" for k, v in val_metrics.items()
+                )
                 log.info(
-                    "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f "
-                    "cell_acc=%.4f blank_acc=%.4f puzzle_acc=%.4f",
+                    "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f %s",
                     phase,
                     epoch,
                     train_loss,
                     val_loss,
-                    val_metrics["cell_accuracy"],
-                    val_metrics["blank_accuracy"],
-                    val_metrics["puzzle_accuracy"],
+                    metrics_str,
                 )
 
                 if val_loss < phase_best_val_loss:
@@ -198,7 +207,10 @@ class SoftGearTrainer:
             targets: Tensor = batch[1].to(self.device)
 
             output = self.model(inputs)
-            loss = self.loss_fn(output, targets)
+            logits = output.logits
+            loss = self.loss_fn(
+                logits.reshape(-1, logits.size(-1)), targets.reshape(-1)
+            )
 
             self.optimizer.zero_grad()
             loss.backward()
@@ -227,18 +239,21 @@ class SoftGearTrainer:
                 targets: Tensor = batch[1].to(self.device)
 
                 output = self.model(inputs)
-                loss = self.loss_fn(output, targets)
+                logits = output.logits
+                loss = self.loss_fn(
+                    logits.reshape(-1, logits.size(-1)), targets.reshape(-1)
+                )
                 total_loss += loss.item()
                 count += 1
 
-                preds = output.logits.argmax(dim=-1)
+                preds = logits.argmax(dim=-1)
                 all_preds.append(preds)
                 all_targets.append(targets)
                 all_inputs.append(inputs)
 
         self.ema.restore()
         avg_loss = total_loss / max(count, 1)
-        metrics = sudoku_accuracy(
+        metrics = self.metrics_fn(
             torch.cat(all_preds), torch.cat(all_targets), torch.cat(all_inputs)
         )
         return avg_loss, metrics

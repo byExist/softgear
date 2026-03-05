@@ -30,8 +30,7 @@ def build_sudoku_model(cfg: DictConfig) -> Analyzer:
     """Build Analyzer with empty chain."""
     encoder = SudokuEncoder(cfg.vocab_size, cfg.hidden_dim)
     decoder = nn.Linear(cfg.hidden_dim, cfg.vocab_size)
-    halt_delta = cfg.adaptive_halt.delta if cfg.adaptive_halt.enabled else None
-    chain = Chain(num_repeats=cfg.num_repeats, halt_delta=halt_delta)
+    chain = Chain()
     return Analyzer(encoder, decoder, chain, cfg.hidden_dim)
 
 
