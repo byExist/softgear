@@ -7,9 +7,10 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from omegaconf import DictConfig
 from torch import Tensor
 from torch.utils.data import DataLoader, Dataset
+
+from softgear.config import DataConfig
 
 SEQ_LEN = 81
 
@@ -51,27 +52,26 @@ class SudokuDataset(Dataset[tuple[Tensor, Tensor]]):
 
 
 def build_sudoku_loaders(
-    cfg: DictConfig,
+    cfg: DataConfig,
 ) -> tuple[DataLoader[tuple[Tensor, Tensor]], DataLoader[tuple[Tensor, Tensor]]]:
     """Build train and validation DataLoaders from config."""
-    data_dir = Path(cfg.data.path)
-    max_samples = getattr(cfg.data, "max_samples", None)
+    data_dir = Path(cfg.path)
 
-    train_dataset = SudokuDataset(data_dir / "train.csv", max_samples=max_samples)
-    val_dataset = SudokuDataset(data_dir / "test.csv", max_samples=max_samples)
+    train_dataset = SudokuDataset(data_dir / "train.csv", max_samples=cfg.max_samples)
+    val_dataset = SudokuDataset(data_dir / "test.csv", max_samples=cfg.max_samples)
 
     train_loader = DataLoader(
         train_dataset,
-        batch_size=cfg.data.batch_size,
+        batch_size=cfg.batch_size,
         shuffle=True,
-        num_workers=cfg.data.num_workers,
+        num_workers=cfg.num_workers,
         pin_memory=torch.cuda.is_available(),
     )
     val_loader = DataLoader(
         val_dataset,
-        batch_size=cfg.data.batch_size,
+        batch_size=cfg.batch_size,
         shuffle=False,
-        num_workers=cfg.data.num_workers,
+        num_workers=cfg.num_workers,
         pin_memory=torch.cuda.is_available(),
     )
     return train_loader, val_loader

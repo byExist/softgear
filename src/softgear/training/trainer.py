@@ -6,13 +6,15 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+import dataclasses
+
 import numpy as np
 import torch
-from omegaconf import DictConfig, OmegaConf
 from torch import Tensor, nn
 from torch.optim import AdamW
 from torch.utils.data import DataLoader
 
+from softgear.config import Config
 from softgear.models.analyzer import Analyzer
 from softgear.models.gear import Gear
 from softgear.training.differential_ema import DifferentialEMA
@@ -33,7 +35,7 @@ class Trainer:
 
     def __init__(
         self,
-        cfg: DictConfig,
+        cfg: Config,
         model: Analyzer,
         train_loader: DataLoader[Any],
         val_loader: DataLoader[Any],
@@ -74,10 +76,10 @@ class Trainer:
             base_lr=tcfg.lr,
             lr_decay=tcfg.lr_decay,
             patience=tcfg.patience,
-            hardening=tcfg.get("hardening", "gradual"),
-            binary_factor=tcfg.get("binary_factor", 0.4),
+            hardening=tcfg.hardening,
+            binary_factor=tcfg.binary_factor,
         )
-        ema_alphas = list(tcfg.get("ema_alphas", []))
+        ema_alphas = list(tcfg.ema_alphas)
         if len(ema_alphas) != cfg.model.num_gears:
             ema_alphas = np.linspace(0.99, 0.999, cfg.model.num_gears).tolist()
         self.ema = DifferentialEMA(model, ema_alphas)
@@ -91,12 +93,11 @@ class Trainer:
 
         # wandb (disabled when wandb not installed or project is null)
         self._wandb_run = None
-        wandb_cfg = getattr(cfg, "wandb", None)
-        if wandb is not None and wandb_cfg and wandb_cfg.get("project"):
+        if wandb is not None and cfg.wandb.project:
             self._wandb_run = wandb.init(
-                project=wandb_cfg.project,
-                entity=wandb_cfg.get("entity"),
-                config=OmegaConf.to_container(cfg, resolve=True),  # type: ignore
+                project=cfg.wandb.project,
+                entity=cfg.wandb.entity,
+                config=dataclasses.asdict(cfg),
                 resume="allow",
             )
 

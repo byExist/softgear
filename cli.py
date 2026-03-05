@@ -10,7 +10,6 @@ from typing import Annotated, Optional
 import numpy as np
 import torch
 import typer
-from omegaconf import DictConfig, OmegaConf
 
 app = typer.Typer(help="SoftGear: Learnable Asymmetric Gear Chains")
 log = logging.getLogger(__name__)
@@ -24,85 +23,14 @@ def _seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
-def _build_config(
-    *,
-    # model
-    vocab_size: int = 10,
-    hidden_dim: int = 128,
-    num_heads: int = 8,
-    ffn_dim: int = 512,
-    num_gears: int = 7,
-    num_repeats: int = 4,
-    dropout: float = 0.1,
-    halt_enabled: bool = True,
-    halt_delta: float = 0.01,
-    # data
-    data_path: str = "data/sudoku-extreme",
-    batch_size: int = 64,
-    num_workers: int = 4,
-    max_samples: int | None = None,
-    # training
-    lr: float = 3e-4,
-    weight_decay: float = 0.01,
-    alpha: float = 0.3,
-    lr_decay: float = 0.5,
-    patience: int = 5,
-    gradient_clip: float = 1.0,
-    checkpoint_dir: str = "checkpoints",
-    # misc
-    seed: int = 42,
-    wandb_project: str | None = None,
-    wandb_entity: str | None = None,
-) -> DictConfig:
-    return OmegaConf.create(
-        {
-            "model": {
-                "name": "softgear",
-                "vocab_size": vocab_size,
-                "hidden_dim": hidden_dim,
-                "num_heads": num_heads,
-                "ffn_dim": ffn_dim,
-                "num_gears": num_gears,
-                "num_repeats": num_repeats,
-                "dropout": dropout,
-                "adaptive_halt": {
-                    "enabled": halt_enabled,
-                    "delta": halt_delta,
-                },
-            },
-            "data": {
-                "path": data_path,
-                "batch_size": batch_size,
-                "num_workers": num_workers,
-                "max_samples": max_samples,
-            },
-            "training": {
-                "lr": lr,
-                "optimizer": "adamw",
-                "weight_decay": weight_decay,
-                "alpha": alpha,
-                "lr_decay": lr_decay,
-                "patience": patience,
-                "gradient_clip": gradient_clip,
-                "checkpoint_dir": checkpoint_dir,
-            },
-            "seed": seed,
-            "wandb": {
-                "project": wandb_project,
-                "entity": wandb_entity,
-            },
-        }
-    )
-
-
 @app.command()
 def train(
     # common overrides
     resume: Annotated[Optional[Path], typer.Option(help="Checkpoint to resume from")] = None,
     max_samples: Annotated[Optional[int], typer.Option(help="Limit dataset size")] = None,
     num_gears: Annotated[int, typer.Option(help="Number of progressive gears")] = 7,
-    num_repeats: Annotated[int, typer.Option(help="Weight-tied block repeat count")] = 4,
     batch_size: Annotated[int, typer.Option(help="Batch size")] = 64,
+    hardening: Annotated[str, typer.Option(help="Hardening strategy: gradual|none|freeze|binary|from_scratch")] = "gradual",
     patience: Annotated[int, typer.Option(help="Epochs before advancing phase")] = 5,
     seed: Annotated[int, typer.Option(help="Random seed")] = 42,
     wandb_project: Annotated[Optional[str], typer.Option(help="W&B project name")] = None,
@@ -115,48 +43,46 @@ def train(
     dropout: Annotated[float, typer.Option(help="Dropout rate")] = 0.1,
     lr: Annotated[float, typer.Option(help="Learning rate")] = 3e-4,
     weight_decay: Annotated[float, typer.Option(help="Weight decay")] = 0.01,
-    alpha: Annotated[float, typer.Option(help="Deep supervision alpha")] = 0.3,
     lr_decay: Annotated[float, typer.Option(help="LR decay per phase")] = 0.5,
+    binary_factor: Annotated[float, typer.Option(help="Binary hardening factor")] = 0.4,
     gradient_clip: Annotated[float, typer.Option(help="Gradient clip norm")] = 1.0,
 ) -> None:
     """Train a SoftGear model with progressive depth."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
+    from softgear.config import Config, DataConfig, ModelConfig, TrainingConfig, WandbConfig
     from softgear.tasks.sudoku.data import build_sudoku_loaders
     from softgear.tasks.sudoku.metrics import sudoku_accuracy
     from softgear.tasks.sudoku.model import build_sudoku_model, make_gear_factory
     from softgear.training.trainer import Trainer
     from softgear.utils.device import get_device
 
-    cfg = _build_config(
-        hidden_dim=hidden_dim,
-        num_heads=num_heads,
-        ffn_dim=ffn_dim,
-        num_gears=num_gears,
-        num_repeats=num_repeats,
-        dropout=dropout,
-        data_path=str(data_path),
-        batch_size=batch_size,
-        max_samples=max_samples,
-        lr=lr,
-        weight_decay=weight_decay,
-        alpha=alpha,
-        lr_decay=lr_decay,
-        patience=patience,
-        gradient_clip=gradient_clip,
-        checkpoint_dir=str(checkpoint_dir),
+    cfg = Config(
+        model=ModelConfig(
+            hidden_dim=hidden_dim, num_heads=num_heads,
+            ffn_dim=ffn_dim, num_gears=num_gears, dropout=dropout,
+        ),
+        data=DataConfig(
+            path=str(data_path), batch_size=batch_size, max_samples=max_samples,
+        ),
+        training=TrainingConfig(
+            lr=lr, weight_decay=weight_decay, hardening=hardening,
+            lr_decay=lr_decay, binary_factor=binary_factor,
+            patience=patience, gradient_clip=gradient_clip,
+            checkpoint_dir=str(checkpoint_dir),
+        ),
         seed=seed,
-        wandb_project=wandb_project,
+        wandb=WandbConfig(project=wandb_project),
     )
 
     _seed_everything(cfg.seed)
-    log.info("Config:\n%s", OmegaConf.to_yaml(cfg))
+    log.info("Config: %s", cfg)
 
     device = get_device()
     model = build_sudoku_model(cfg.model)
     log.info("Model parameters: %d", model.parameter_count())
 
-    train_loader, val_loader = build_sudoku_loaders(cfg)
+    train_loader, val_loader = build_sudoku_loaders(cfg.data)
     log.info("Train: %d batches, Val: %d batches", len(train_loader), len(val_loader))
 
     gear_factory = make_gear_factory(cfg.model)
@@ -181,27 +107,25 @@ def evaluate(
     num_heads: Annotated[int, typer.Option(help="Attention heads")] = 8,
     ffn_dim: Annotated[int, typer.Option(help="FFN dimension")] = 512,
     num_gears: Annotated[int, typer.Option(help="Number of gears")] = 7,
-    num_repeats: Annotated[int, typer.Option(help="Weight-tied block repeat count")] = 4,
     dropout: Annotated[float, typer.Option(help="Dropout rate")] = 0.1,
 ) -> None:
     """Evaluate a trained SoftGear model."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
+    from softgear.config import Config, DataConfig, ModelConfig
     from softgear.tasks.sudoku.data import build_sudoku_loaders
     from softgear.tasks.sudoku.metrics import sudoku_accuracy
     from softgear.tasks.sudoku.model import build_sudoku_model, mount_all_gears
     from softgear.utils.device import get_device
 
-    cfg = _build_config(
-        hidden_dim=hidden_dim,
-        num_heads=num_heads,
-        ffn_dim=ffn_dim,
-        num_gears=num_gears,
-        num_repeats=num_repeats,
-        dropout=dropout,
-        data_path=str(data_path),
-        batch_size=batch_size,
-        max_samples=max_samples,
+    cfg = Config(
+        model=ModelConfig(
+            hidden_dim=hidden_dim, num_heads=num_heads,
+            ffn_dim=ffn_dim, num_gears=num_gears, dropout=dropout,
+        ),
+        data=DataConfig(
+            path=str(data_path), batch_size=batch_size, max_samples=max_samples,
+        ),
     )
 
     device = get_device()
@@ -213,7 +137,7 @@ def evaluate(
     model.to(device)
     model.eval()
 
-    _, val_loader = build_sudoku_loaders(cfg)
+    _, val_loader = build_sudoku_loaders(cfg.data)
 
     all_preds: list[torch.Tensor] = []
     all_targets: list[torch.Tensor] = []

@@ -3,9 +3,9 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import torch
-from omegaconf import DictConfig
 from torch import Tensor, nn
 
+from softgear.config import ModelConfig
 from softgear.models.analyzer import Analyzer
 from softgear.models.chain import Chain
 from softgear.models.gear import Gear
@@ -26,7 +26,7 @@ class SudokuEncoder(nn.Module):
         return self.token_emb(x) + self.pos_emb(pos)
 
 
-def build_sudoku_model(cfg: DictConfig) -> Analyzer:
+def build_sudoku_model(cfg: ModelConfig) -> Analyzer:
     """Build Analyzer with empty chain."""
     encoder = SudokuEncoder(cfg.vocab_size, cfg.hidden_dim)
     decoder = nn.Linear(cfg.hidden_dim, cfg.vocab_size)
@@ -34,7 +34,7 @@ def build_sudoku_model(cfg: DictConfig) -> Analyzer:
     return Analyzer(encoder, decoder, chain, cfg.hidden_dim)
 
 
-def make_gear_factory(cfg: DictConfig) -> Callable[[int], Gear]:
+def make_gear_factory(cfg: ModelConfig) -> Callable[[int], Gear]:
     """Factory that creates a single-layer Gear for a given phase index.
 
     Phase 0: normal init (first gear learns from scratch).
@@ -53,7 +53,7 @@ def make_gear_factory(cfg: DictConfig) -> Callable[[int], Gear]:
     return factory
 
 
-def mount_all_gears(model: Analyzer, cfg: DictConfig) -> None:
+def mount_all_gears(model: Analyzer, cfg: ModelConfig) -> None:
     """Mount all gears at once (for loading trained models)."""
     factory = make_gear_factory(cfg)
     for i in range(cfg.num_gears):
