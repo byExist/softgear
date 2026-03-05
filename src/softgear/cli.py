@@ -59,7 +59,7 @@ def train(
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     from softgear.config import Config, DataConfig, ModelConfig, TrainingConfig, WandbConfig
-    from softgear.tasks import get_task
+    from softgear.tasks.registry import get_task
     from softgear.training.trainer import Trainer
     from softgear.utils.device import get_device
 
@@ -119,7 +119,7 @@ def evaluate(
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
     from softgear.config import DataConfig, ModelConfig
-    from softgear.tasks import get_task
+    from softgear.tasks.registry import get_task
     from softgear.utils.device import get_device
 
     device = get_device()
