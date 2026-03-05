@@ -13,8 +13,10 @@ wheels/
 docs/
 plans/
 
-# Data (large files)
-/data/
+# Data (large files, but track download scripts)
+/data/**
+!/data/**/
+!/data/*/download.py
 external/
 
 # Checkpoints

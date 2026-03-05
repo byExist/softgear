@@ -117,6 +117,27 @@ def train(
     trainer.train(checkpoint_dir=str(checkpoint_dir))
 
 
+@app.command()
+def download(
+    task: Annotated[str, typer.Argument(help="Task name")],
+) -> None:
+    """Download dataset for a task."""
+    import subprocess
+    import sys
+
+    from softgear.tasks.registry import get_task
+
+    t = get_task(task)
+    data_dir = Path(t.data_defaults.path)
+    script = data_dir / "download.py"
+
+    if not script.exists():
+        typer.echo(f"No download script found at {script}", err=True)
+        raise typer.Exit(1)
+
+    subprocess.run([sys.executable, str(script)], check=True)
+
+
 @app.command("eval")
 def evaluate(
     checkpoint: Annotated[Path, typer.Argument(help="Checkpoint file path")],
