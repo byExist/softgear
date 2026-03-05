@@ -34,6 +34,7 @@ def train(
     num_gears: Annotated[int, typer.Option(help="Number of progressive gears")] = 7,
     lr_decay: Annotated[float, typer.Option(help="LR decay per phase (gradual hardening)")] = 0.5,
     binary_factor: Annotated[float, typer.Option(help="Binary hardening factor (binary hardening)")] = 0.4,
+    curriculum: Annotated[bool, typer.Option("--curriculum/--no-curriculum", help="Sort training data by difficulty (easy first)")] = False,
     # training
     lr: Annotated[float, typer.Option(help="Learning rate")] = 3e-4,
     batch_size: Annotated[int, typer.Option(help="Batch size")] = 64,
@@ -75,6 +76,7 @@ def train(
     data_cfg = replace(
         t.data_defaults,
         batch_size=batch_size, max_samples=max_samples,
+        curriculum=curriculum,
         **({"path": str(data_path)} if data_path else {}),
     )
 

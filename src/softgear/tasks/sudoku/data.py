@@ -38,6 +38,13 @@ class SudokuDataset(Dataset[tuple[Tensor, Tensor]]):
         self.puzzles = np.stack(puzzles)
         self.solutions = np.stack(solutions)
 
+    def sort_by_difficulty(self) -> None:
+        """Sort samples by blank count (ascending = easy first)."""
+        blank_counts = (self.puzzles == 0).sum(axis=1)
+        order = np.argsort(blank_counts)
+        self.puzzles = self.puzzles[order]
+        self.solutions = self.solutions[order]
+
     def __len__(self) -> int:
         return len(self.puzzles)
 
@@ -57,10 +64,13 @@ def build_sudoku_loaders(
     train_dataset = SudokuDataset(data_dir / "train.csv", max_samples=cfg.max_samples)
     val_dataset = SudokuDataset(data_dir / "test.csv", max_samples=cfg.max_samples)
 
+    if cfg.curriculum:
+        train_dataset.sort_by_difficulty()
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=cfg.batch_size,
-        shuffle=True,
+        shuffle=not cfg.curriculum,
         num_workers=cfg.num_workers,
         pin_memory=torch.cuda.is_available(),
     )

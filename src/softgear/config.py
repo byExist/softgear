@@ -23,6 +23,7 @@ class DataConfig:
     batch_size: int = 64
     num_workers: int = 4
     max_samples: int | None = None
+    curriculum: bool = False
 
 
 @dataclass
