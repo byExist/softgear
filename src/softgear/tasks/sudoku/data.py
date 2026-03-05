@@ -12,20 +12,17 @@ from torch.utils.data import DataLoader, Dataset
 
 from softgear.config import DataConfig
 
-SEQ_LEN = 81
-
-
 def _tokenize(s: str) -> np.ndarray:
-    """Convert 81-char sudoku string to int8 array. '.' -> 0, '1'-'9' -> 1-9."""
+    """Convert sudoku string to int8 array. '.' -> 0, '1'-'9' -> 1-9."""
     return np.array([0 if c == "." else int(c) for c in s], dtype=np.int8)
 
 
 class SudokuDataset(Dataset[tuple[Tensor, Tensor]]):
-    """Sudoku-Extreme dataset. Each item is (puzzle, solution) of shape (81,)."""
+    """Sudoku dataset. Each item is (puzzle, solution) of shape (seq_len,)."""
 
     def __init__(self, csv_path: str | Path, max_samples: int | None = None):
-        self.puzzles: np.ndarray  # (N, 81) int8
-        self.solutions: np.ndarray  # (N, 81) int8
+        self.puzzles: np.ndarray  # (N, seq_len) int8
+        self.solutions: np.ndarray  # (N, seq_len) int8
 
         puzzles: list[np.ndarray] = []
         solutions: list[np.ndarray] = []

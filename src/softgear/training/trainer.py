@@ -26,6 +26,8 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+LossFn = Callable[[Tensor, Tensor], Tensor]
+PredictFn = Callable[[Tensor], Tensor]
 MetricsFn = Callable[[Tensor, Tensor, Tensor], dict[str, float]]
 
 
@@ -39,6 +41,8 @@ class Trainer:
         train_loader: DataLoader[Any],
         val_loader: DataLoader[Any],
         gear_factory: Callable[[int], Gear],
+        loss_fn: LossFn,
+        predict_fn: PredictFn,
         metrics_fn: MetricsFn,
         device: torch.device | None = None,
     ):
@@ -46,6 +50,8 @@ class Trainer:
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
+        self.loss_fn = loss_fn
+        self.predict_fn = predict_fn
         self.metrics_fn = metrics_fn
         self.device = device or torch.device("cpu")
 
@@ -64,8 +70,6 @@ class Trainer:
             lr=tcfg.lr,
             weight_decay=tcfg.weight_decay,
         )
-
-        self.loss_fn = nn.CrossEntropyLoss()
 
         self.progressive = ProgressiveDepthScheduler(
             model,
@@ -205,13 +209,10 @@ class Trainer:
             targets: Tensor = batch[1].to(self.device)
 
             output = self.model(inputs)
-            logits = output.logits
-            loss = self.loss_fn(
-                logits.reshape(-1, logits.size(-1)), targets.reshape(-1)
-            )
+            loss = self.loss_fn(output.logits, targets)
 
             self.optimizer.zero_grad()
-            loss.backward()
+            loss.backward()  # type: ignore[reportUnknownMemberType]
             if self.gradient_clip > 0:
                 nn.utils.clip_grad_norm_(self.model.parameters(), self.gradient_clip)
             self.optimizer.step()  # type: ignore[reportUnknownMemberType]
@@ -237,14 +238,11 @@ class Trainer:
                 targets: Tensor = batch[1].to(self.device)
 
                 output = self.model(inputs)
-                logits = output.logits
-                loss = self.loss_fn(
-                    logits.reshape(-1, logits.size(-1)), targets.reshape(-1)
-                )
+                loss = self.loss_fn(output.logits, targets)
                 total_loss += loss.item()
                 count += 1
 
-                preds = logits.argmax(dim=-1)
+                preds = self.predict_fn(output.logits)
                 all_preds.append(preds)
                 all_targets.append(targets)
                 all_inputs.append(inputs)

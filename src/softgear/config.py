@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 @dataclass
 class ModelConfig:
     vocab_size: int = 10
+    seq_len: int = 81
     hidden_dim: int = 128
     num_heads: int = 8
     ffn_dim: int = 512

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import random
+from dataclasses import replace
 from pathlib import Path
 from typing import Annotated, Optional
 
@@ -47,7 +48,7 @@ def train(
     ffn_dim: Annotated[int, typer.Option(help="FFN dimension")] = 512,
     dropout: Annotated[float, typer.Option(help="Dropout rate")] = 0.1,
     # data & io
-    data_path: Annotated[Path, typer.Option(help="Dataset directory")] = Path("data/sudoku-extreme"),
+    data_path: Annotated[Optional[Path], typer.Option(help="Dataset directory (default: task-specific)")] = None,
     max_samples: Annotated[Optional[int], typer.Option(help="Limit dataset size")] = None,
     checkpoint_dir: Annotated[Path, typer.Option(help="Checkpoint directory")] = Path("checkpoints"),
     resume: Annotated[Optional[Path], typer.Option(help="Checkpoint to resume from")] = None,
@@ -58,23 +59,29 @@ def train(
     """Train a SoftGear model with progressive depth."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-    from softgear.config import Config, DataConfig, ModelConfig, TrainingConfig, WandbConfig
+    from softgear.config import Config, TrainingConfig, WandbConfig
     from softgear.tasks.registry import get_task
     from softgear.training.trainer import Trainer
     from softgear.utils.device import get_device
 
     t = get_task(task)
 
+    model_cfg = replace(
+        t.model_defaults,
+        hidden_dim=hidden_dim, num_heads=num_heads,
+        ffn_dim=ffn_dim, num_gears=num_gears, dropout=dropout,
+        identity_init=identity_init,
+    )
+    data_cfg = replace(
+        t.data_defaults,
+        batch_size=batch_size, max_samples=max_samples,
+        **({"path": str(data_path)} if data_path else {}),
+    )
+
     cfg = Config(
         task=task,
-        model=ModelConfig(
-            hidden_dim=hidden_dim, num_heads=num_heads,
-            ffn_dim=ffn_dim, num_gears=num_gears, dropout=dropout,
-            identity_init=identity_init,
-        ),
-        data=DataConfig(
-            path=str(data_path), batch_size=batch_size, max_samples=max_samples,
-        ),
+        model=model_cfg,
+        data=data_cfg,
         training=TrainingConfig(
             lr=lr, weight_decay=weight_decay, hardening=hardening,
             lr_decay=lr_decay, binary_factor=binary_factor,
@@ -99,7 +106,9 @@ def train(
     gear_factory = t.make_gear_factory(cfg.model)
     trainer = Trainer(
         cfg, model, train_loader, val_loader,
-        gear_factory=gear_factory, metrics_fn=t.metrics_fn, device=device,
+        gear_factory=gear_factory,
+        loss_fn=t.loss_fn, predict_fn=t.predict_fn,
+        metrics_fn=t.metrics_fn, device=device,
     )
 
     if resume:
@@ -111,24 +120,28 @@ def train(
 @app.command("eval")
 def evaluate(
     checkpoint: Annotated[Path, typer.Argument(help="Checkpoint file path")],
-    data_path: Annotated[Path, typer.Option(help="Dataset directory")] = Path("data/sudoku-extreme"),
+    data_path: Annotated[Optional[Path], typer.Option(help="Dataset directory (default: task-specific)")] = None,
     max_samples: Annotated[Optional[int], typer.Option(help="Limit dataset size")] = None,
     batch_size: Annotated[int, typer.Option(help="Batch size")] = 64,
 ) -> None:
     """Evaluate a trained SoftGear model."""
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
 
-    from softgear.config import DataConfig, ModelConfig
+    from softgear.config import ModelConfig
     from softgear.tasks.registry import get_task
     from softgear.utils.device import get_device
 
     device = get_device()
     ckpt = torch.load(checkpoint, map_location=device, weights_only=False)
-    task_name = ckpt["config"].get("task", "sudoku")
+    task_name = ckpt["config"].get("task", "sudoku9")
     t = get_task(task_name)
 
     model_cfg = ModelConfig(**ckpt["config"]["model"])
-    data_cfg = DataConfig(path=str(data_path), batch_size=batch_size, max_samples=max_samples)
+    data_cfg = replace(
+        t.data_defaults,
+        batch_size=batch_size, max_samples=max_samples,
+        **({"path": str(data_path)} if data_path else {}),
+    )
 
     model = t.build_model(model_cfg)
     t.mount_all_gears(model, model_cfg)
@@ -147,7 +160,7 @@ def evaluate(
             inputs = batch[0].to(device)
             targets = batch[1].to(device)
             output = model(inputs)
-            preds = output.logits.argmax(dim=-1)
+            preds = t.predict_fn(output.logits)
             all_preds.append(preds)
             all_targets.append(targets)
             all_inputs.append(inputs)
