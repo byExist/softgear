@@ -8,7 +8,6 @@ from typing import Any
 
 import dataclasses
 
-import numpy as np
 import torch
 from torch import Tensor, nn
 from torch.optim import AdamW
@@ -79,9 +78,7 @@ class Trainer:
             hardening=tcfg.hardening,
             binary_factor=tcfg.binary_factor,
         )
-        ema_alphas = list(tcfg.ema_alphas)
-        if len(ema_alphas) != cfg.model.num_gears:
-            ema_alphas = np.linspace(0.99, 0.999, cfg.model.num_gears).tolist()
+        ema_alphas = [tcfg.ema_alpha] * cfg.model.num_gears
         self.ema = DifferentialEMA(model, ema_alphas)
 
         self.gradient_clip = tcfg.gradient_clip
@@ -268,6 +265,7 @@ class Trainer:
     ) -> None:
         torch.save(
             {
+                "config": dataclasses.asdict(self.cfg),
                 "model_state_dict": self.model.state_dict(),
                 "optimizer_state_dict": self.optimizer.state_dict(),
                 "progressive_state": self.progressive.state_dict(),

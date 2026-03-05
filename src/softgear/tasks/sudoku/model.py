@@ -47,7 +47,7 @@ def make_gear_factory(cfg: ModelConfig) -> Callable[[int], Gear]:
             cfg.num_heads,
             cfg.ffn_dim,
             cfg.dropout,
-            identity_init=(phase_idx > 0),
+            identity_init=(cfg.identity_init and phase_idx > 0),
         )
 
     return factory

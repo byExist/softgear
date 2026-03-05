@@ -13,6 +13,7 @@ class ModelConfig:
     ffn_dim: int = 512
     num_gears: int = 7
     dropout: float = 0.1
+    identity_init: bool = True
 
 
 @dataclass
@@ -31,7 +32,7 @@ class TrainingConfig:
     hardening: str = "gradual"
     lr_decay: float = 0.5
     binary_factor: float = 0.4
-    ema_alphas: list[float] = field(default_factory=list)
+    ema_alpha: float = 0.995
     patience: int = 5
     gradient_clip: float = 1.0
     checkpoint_dir: str = "checkpoints"
@@ -45,6 +46,7 @@ class WandbConfig:
 
 @dataclass
 class Config:
+    task: str = "sudoku"
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)
