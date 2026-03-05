@@ -46,7 +46,7 @@ class WandbConfig:
 
 @dataclass
 class Config:
-    task: str = "sudoku"
+    task: str
     model: ModelConfig = field(default_factory=ModelConfig)
     data: DataConfig = field(default_factory=DataConfig)
     training: TrainingConfig = field(default_factory=TrainingConfig)

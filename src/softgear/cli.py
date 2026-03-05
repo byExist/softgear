@@ -26,7 +26,7 @@ def _seed_everything(seed: int) -> None:
 @app.command()
 def train(
     # task
-    task: Annotated[str, typer.Option(help="Task name")] = "sudoku",
+    task: Annotated[str, typer.Option(help="Task name")],
     # experiment (independent variables)
     hardening: Annotated[str, typer.Option(help="Hardening strategy: gradual|none|freeze|binary|from_scratch")] = "gradual",
     identity_init: Annotated[bool, typer.Option("--identity-init/--no-identity-init", help="Identity init for new gears (disable for ablation)")] = True,
