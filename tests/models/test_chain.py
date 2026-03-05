@@ -15,7 +15,8 @@ def _make_gear() -> Gear:
 def test_empty_is_identity():
     chain = Chain()
     x = torch.randn(B, SEQ, D)
-    torch.testing.assert_close(chain(x), x)
+    with torch.no_grad():
+        torch.testing.assert_close(chain(x), x)
 
 
 def test_mount_increases_gear_count():
@@ -32,4 +33,5 @@ def test_forward_shape_after_mount():
     chain.mount(_make_gear())
     chain.mount(_make_gear())
     x = torch.randn(B, SEQ, D)
-    assert chain(x).shape == (B, SEQ, D)
+    with torch.no_grad():
+        assert chain(x).shape == (B, SEQ, D)

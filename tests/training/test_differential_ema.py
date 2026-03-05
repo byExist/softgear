@@ -22,6 +22,7 @@ def _make_model() -> Analyzer:
     return Analyzer(encoder, decoder, Chain(), hidden_dim=D)
 
 
+@torch.no_grad()
 def test_apply_changes_params():
     model = _make_model()
     model.chain.mount(_gear_factory(0))
@@ -46,6 +47,7 @@ def test_apply_changes_params():
     ema.restore()
 
 
+@torch.no_grad()
 def test_restore_recovers_original():
     model = _make_model()
     model.chain.mount(_gear_factory(0))
@@ -64,6 +66,7 @@ def test_restore_recovers_original():
         torch.testing.assert_close(p.data, original_params[n])
 
 
+@torch.no_grad()
 def test_state_dict_roundtrip():
     model = _make_model()
     model.chain.mount(_gear_factory(0))

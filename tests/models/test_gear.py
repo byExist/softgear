@@ -14,14 +14,16 @@ def _make_gear(identity_init: bool = False) -> Gear:
 def test_forward_shape():
     gear = _make_gear()
     x = torch.randn(B, SEQ, D)
-    assert gear(x).shape == (B, SEQ, D)
+    with torch.no_grad():
+        assert gear(x).shape == (B, SEQ, D)
 
 
 def test_identity_init_preserves_input():
     gear = _make_gear(identity_init=True)
     gear.eval()
     x = torch.randn(B, SEQ, D)
-    torch.testing.assert_close(gear(x), x, atol=1e-5, rtol=1e-5)
+    with torch.no_grad():
+        torch.testing.assert_close(gear(x), x, atol=1e-5, rtol=1e-5)
 
 
 def test_identity_init_zeros_output_projections():

@@ -24,7 +24,8 @@ def _make_analyzer() -> Analyzer:
 def test_forward_returns_model_output():
     model = _make_analyzer()
     x = torch.randint(0, VOCAB, (B, SEQ))
-    out = model(x)
+    with torch.no_grad():
+        out = model(x)
     assert isinstance(out, ModelOutput)
     assert out.logits.shape == (B, SEQ, VOCAB)
 
@@ -41,4 +42,5 @@ def test_forward_works_with_gears():
     model.chain.mount(_make_gear())
     model.chain.mount(_make_gear())
     x = torch.randint(0, VOCAB, (B, SEQ))
-    assert model(x).logits.shape == (B, SEQ, VOCAB)
+    with torch.no_grad():
+        assert model(x).logits.shape == (B, SEQ, VOCAB)
