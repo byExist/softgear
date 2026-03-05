@@ -108,12 +108,16 @@ class ProgressiveDepthScheduler:
             new_gear.to(next(self.model.parameters()).device)
             self.model.chain.mount(new_gear)
             self.optimizer.add_param_group(
-                {"params": list(new_gear.parameters()), "lr": self.base_lr, "is_gear": True}
+                {
+                    "params": list(new_gear.parameters()),
+                    "lr": self.base_lr,
+                    "is_gear": True,
+                }
             )
             self._phase += 1
         self._val_losses.clear()
 
-    def should_advance(self, val_loss: float) -> bool:
+    def check_convergence(self, val_loss: float) -> bool:
         """Advance when val_loss hasn't improved for `patience` epochs.
 
         Tracks the best val_loss seen in this phase.  If `patience`

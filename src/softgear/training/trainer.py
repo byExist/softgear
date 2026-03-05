@@ -61,9 +61,7 @@ class Trainer:
 
         # Non-gear params (embedding, norm, output_head)
         non_gear_params = [
-            p
-            for n, p in model.named_parameters()
-            if not n.startswith("chain.gears.")
+            p for n, p in model.named_parameters() if not n.startswith("chain.gears.")
         ]
         self.optimizer = AdamW(
             non_gear_params,
@@ -122,7 +120,9 @@ class Trainer:
                 self.progressive.advance_phase()
                 epoch_start = 0
 
-            log.info("Phase %d/%d started (epoch_start=%d)", phase, num_phases, epoch_start)
+            log.info(
+                "Phase %d/%d started (epoch_start=%d)", phase, num_phases, epoch_start
+            )
 
             # Track per-phase best for restore-on-advance
             phase_best_val_loss = float("inf")
@@ -133,9 +133,7 @@ class Trainer:
                 val_loss, val_metrics = self._validate()
                 self.ema.update()
 
-                metrics_str = " ".join(
-                    f"{k}={v:.4f}" for k, v in val_metrics.items()
-                )
+                metrics_str = " ".join(f"{k}={v:.4f}" for k, v in val_metrics.items())
                 log.info(
                     "Phase %d Epoch %d: train_loss=%.4f val_loss=%.4f %s",
                     phase,
@@ -152,13 +150,15 @@ class Trainer:
                     }
 
                 if self._wandb_run is not None:
-                    self._wandb_run.log({
-                        "phase": phase,
-                        "epoch": epoch,
-                        "train_loss": train_loss,
-                        "val_loss": val_loss,
-                        **val_metrics,
-                    })
+                    self._wandb_run.log(
+                        {
+                            "phase": phase,
+                            "epoch": epoch,
+                            "train_loss": train_loss,
+                            "val_loss": val_loss,
+                            **val_metrics,
+                        }
+                    )
 
                 if checkpoint_dir is not None:
                     self.save_checkpoint(
@@ -177,7 +177,7 @@ class Trainer:
                         )
                         log.info("New best val_loss=%.4f saved", best_val_loss)
 
-                if self.progressive.should_advance(val_loss):
+                if self.progressive.check_convergence(val_loss):
                     # Restore to phase-best state before advancing
                     if phase_best_model_state is not None:
                         self.model.load_state_dict(phase_best_model_state)
