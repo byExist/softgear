@@ -6,7 +6,7 @@ import logging
 import random
 from dataclasses import replace
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Literal, Optional
 
 import numpy as np
 import torch
@@ -30,7 +30,7 @@ def train(
     task: Annotated[str, typer.Option(help="Task name")],
     # experiment (independent variables)
     hardening: Annotated[
-        str,
+        Literal["gradual", "none", "freeze", "binary", "from_scratch"],
         typer.Option(
             help="Hardening strategy: gradual|none|freeze|binary|from_scratch"
         ),

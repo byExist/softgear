@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Literal
 
 
 @dataclass
@@ -30,9 +31,9 @@ class DataConfig:
 @dataclass
 class TrainingConfig:
     lr: float
-    optimizer: str
+    optimizer: Literal["adamw"]
     weight_decay: float
-    hardening: str
+    hardening: Literal["gradual", "none", "freeze", "binary", "from_scratch"]
     lr_decay: float
     binary_factor: float
     ema_alpha: float
