@@ -25,6 +25,7 @@ class TaskSpec:
     mount_all_gears: Callable[[Analyzer, ModelConfig], None]
     model_defaults: ModelConfig = field(default_factory=ModelConfig)
     data_defaults: DataConfig = field(default_factory=DataConfig)
+    download: Callable[[str], None] | None = None
 
 
 _TASKS = ("sudoku4", "sudoku9")

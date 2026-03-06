@@ -9,6 +9,7 @@ dependencies = [
     "pandas>=3.0.1",
     "torch>=2.10.0",
     "typer>=0.24.1",
+    "huggingface-hub>=1.5.0",
     "wandb>=0.25.0",
 ]
 
@@ -29,7 +30,6 @@ addopts = "-m 'not slow'"
 [dependency-groups]
 dev = [
     "black>=26.1.0",
-    "huggingface-hub>=1.5.0",
     "pytest>=9.0.2",
     "pytest-timeout>=2.4.0",
 ]

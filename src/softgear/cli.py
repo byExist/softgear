@@ -124,22 +124,18 @@ def train(
 @app.command()
 def download(
     task: Annotated[str, typer.Argument(help="Task name")],
+    data_path: Annotated[Optional[Path], typer.Option(help="Download directory (default: task-specific)")] = None,
 ) -> None:
     """Download dataset for a task."""
-    import subprocess
-    import sys
-
     from softgear.tasks.registry import get_task
 
     t = get_task(task)
-    data_dir = Path(t.data_defaults.path)
-    script = data_dir / "download.py"
-
-    if not script.exists():
-        typer.echo(f"No download script found at {script}", err=True)
+    if t.download is None:
+        typer.echo(f"Task {task!r} has no download function", err=True)
         raise typer.Exit(1)
 
-    subprocess.run([sys.executable, str(script)], check=True)
+    dest = str(data_path) if data_path else t.data_defaults.path
+    t.download(dest)
 
 
 @app.command("eval")

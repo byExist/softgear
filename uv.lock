@@ -1150,6 +1150,7 @@ name = "softgear"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "huggingface-hub" },
     { name = "numpy" },
     { name = "pandas" },
     { name = "torch" },
@@ -1160,13 +1161,13 @@ dependencies = [
 [package.dev-dependencies]
 dev = [
     { name = "black" },
-    { name = "huggingface-hub" },
     { name = "pytest" },
     { name = "pytest-timeout" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "huggingface-hub", specifier = ">=1.5.0" },
     { name = "numpy", specifier = ">=2.4.2" },
     { name = "pandas", specifier = ">=3.0.1" },
     { name = "torch", specifier = ">=2.10.0" },
@@ -1177,7 +1178,6 @@ requires-dist = [
 [package.metadata.requires-dev]
 dev = [
     { name = "black", specifier = ">=26.1.0" },
-    { name = "huggingface-hub", specifier = ">=1.5.0" },
     { name = "pytest", specifier = ">=9.0.2" },
     { name = "pytest-timeout", specifier = ">=2.4.0" },
 ]
