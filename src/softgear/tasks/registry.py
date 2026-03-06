@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from collections.abc import Callable
 from typing import Any  # used in DataLoader type
 
@@ -23,8 +23,8 @@ class TaskSpec:
     predict_fn: Callable[[Tensor], Tensor]
     metrics_fn: Callable[[Tensor, Tensor, Tensor], dict[str, float]]
     mount_all_gears: Callable[[Analyzer, ModelConfig], None]
-    model_defaults: ModelConfig = field(default_factory=ModelConfig)
-    data_defaults: DataConfig = field(default_factory=DataConfig)
+    model_defaults: ModelConfig
+    data_defaults: DataConfig
     download: Callable[[str], None] | None = None
 
 

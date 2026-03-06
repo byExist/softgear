@@ -29,39 +29,83 @@ def train(
     # task
     task: Annotated[str, typer.Option(help="Task name")],
     # experiment (independent variables)
-    hardening: Annotated[str, typer.Option(help="Hardening strategy: gradual|none|freeze|binary|from_scratch")] = "gradual",
-    identity_init: Annotated[bool, typer.Option("--identity-init/--no-identity-init", help="Identity init for new gears (disable for ablation)")] = True,
-    scale: Annotated[float, typer.Option(help="Resolution scale: gear i gets round(scale^i) layers (1.0=uniform)")] = 1.0,
+    hardening: Annotated[
+        str,
+        typer.Option(
+            help="Hardening strategy: gradual|none|freeze|binary|from_scratch"
+        ),
+    ] = "gradual",
+    identity_init: Annotated[
+        bool,
+        typer.Option(
+            "--identity-init/--no-identity-init",
+            help="Identity init for new gears (disable for ablation)",
+        ),
+    ] = True,
+    scale: Annotated[
+        float,
+        typer.Option(
+            help="Resolution scale: gear i gets round(scale^i) layers (1.0=uniform)"
+        ),
+    ] = 1.0,
     num_gears: Annotated[int, typer.Option(help="Number of progressive gears")] = 7,
-    lr_decay: Annotated[float, typer.Option(help="LR decay per phase (gradual hardening)")] = 0.5,
-    binary_factor: Annotated[float, typer.Option(help="Binary hardening factor (binary hardening)")] = 0.4,
-    curriculum: Annotated[bool, typer.Option("--curriculum/--no-curriculum", help="Sort training data by difficulty (easy first)")] = False,
+    lr_decay: Annotated[
+        float, typer.Option(help="LR decay per phase (gradual hardening)")
+    ] = 0.5,
+    binary_factor: Annotated[
+        float, typer.Option(help="Binary hardening factor (binary hardening)")
+    ] = 0.4,
+    curriculum: Annotated[
+        bool,
+        typer.Option(
+            "--curriculum/--no-curriculum",
+            help="Sort training data by difficulty (easy first)",
+        ),
+    ] = False,
     # training
     lr: Annotated[float, typer.Option(help="Learning rate")] = 3e-4,
     batch_size: Annotated[int, typer.Option(help="Batch size")] = 64,
     patience: Annotated[int, typer.Option(help="Epochs before advancing phase")] = 5,
-    min_delta: Annotated[float, typer.Option(help="Minimum loss improvement to reset patience")] = 1e-4,
+    min_delta: Annotated[
+        float, typer.Option(help="Minimum loss improvement to reset patience")
+    ] = 1e-4,
     weight_decay: Annotated[float, typer.Option(help="Weight decay")] = 0.01,
-    ema_alpha: Annotated[float, typer.Option(help="EMA decay rate (uniform for all gears)")] = 0.995,
+    ema_alpha: Annotated[
+        float, typer.Option(help="EMA decay rate (uniform for all gears)")
+    ] = 0.995,
     gradient_clip: Annotated[float, typer.Option(help="Gradient clip norm")] = 1.0,
-    max_total_steps: Annotated[Optional[int], typer.Option(help="Max total training steps (None=unlimited)")] = None,
+    max_total_steps: Annotated[
+        Optional[int], typer.Option(help="Max total training steps (None=unlimited)")
+    ] = None,
     seed: Annotated[int, typer.Option(help="Random seed")] = 42,
     # model
     hidden_dim: Annotated[int, typer.Option(help="Hidden dimension")] = 128,
-    num_heads: Annotated[int, typer.Option(help="Attention heads")] = 8,
+    num_heads: Annotated[int, typer.Option(help="Attention heads")] = 4,
     ffn_dim: Annotated[int, typer.Option(help="FFN dimension")] = 512,
     dropout: Annotated[float, typer.Option(help="Dropout rate")] = 0.1,
     # data & io
-    data_path: Annotated[Optional[Path], typer.Option(help="Dataset directory (default: task-specific)")] = None,
-    max_samples: Annotated[Optional[int], typer.Option(help="Limit dataset size")] = None,
-    checkpoint_dir: Annotated[Path, typer.Option(help="Checkpoint directory")] = Path("checkpoints"),
-    resume: Annotated[Optional[Path], typer.Option(help="Checkpoint to resume from")] = None,
+    data_path: Annotated[
+        Optional[Path], typer.Option(help="Dataset directory (default: task-specific)")
+    ] = None,
+    max_samples: Annotated[
+        Optional[int], typer.Option(help="Limit dataset size")
+    ] = None,
+    checkpoint_dir: Annotated[Path, typer.Option(help="Checkpoint directory")] = Path(
+        "checkpoints"
+    ),
+    resume: Annotated[
+        Optional[Path], typer.Option(help="Checkpoint to resume from")
+    ] = None,
     # logging
-    wandb_project: Annotated[Optional[str], typer.Option(help="W&B project name")] = None,
+    wandb_project: Annotated[
+        Optional[str], typer.Option(help="W&B project name")
+    ] = None,
     wandb_entity: Annotated[Optional[str], typer.Option(help="W&B entity name")] = None,
 ) -> None:
     """Train a SoftGear model with progressive depth."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
 
     from softgear.config import Config, TrainingConfig, WandbConfig
     from softgear.tasks.registry import get_task
@@ -72,13 +116,18 @@ def train(
 
     model_cfg = replace(
         t.model_defaults,
-        hidden_dim=hidden_dim, num_heads=num_heads,
-        ffn_dim=ffn_dim, num_gears=num_gears, dropout=dropout,
-        identity_init=identity_init, scale=scale,
+        hidden_dim=hidden_dim,
+        num_heads=num_heads,
+        ffn_dim=ffn_dim,
+        num_gears=num_gears,
+        dropout=dropout,
+        identity_init=identity_init,
+        scale=scale,
     )
     data_cfg = replace(
         t.data_defaults,
-        batch_size=batch_size, max_samples=max_samples,
+        batch_size=batch_size,
+        max_samples=max_samples,
         curriculum=curriculum,
         **({"path": str(data_path)} if data_path else {}),
     )
@@ -88,10 +137,17 @@ def train(
         model=model_cfg,
         data=data_cfg,
         training=TrainingConfig(
-            lr=lr, weight_decay=weight_decay, hardening=hardening,
-            lr_decay=lr_decay, binary_factor=binary_factor,
-            patience=patience, min_delta=min_delta, gradient_clip=gradient_clip,
-            ema_alpha=ema_alpha, max_total_steps=max_total_steps,
+            lr=lr,
+            optimizer="adamw",
+            weight_decay=weight_decay,
+            hardening=hardening,
+            lr_decay=lr_decay,
+            binary_factor=binary_factor,
+            patience=patience,
+            min_delta=min_delta,
+            gradient_clip=gradient_clip,
+            ema_alpha=ema_alpha,
+            max_total_steps=max_total_steps,
             checkpoint_dir=str(checkpoint_dir),
         ),
         seed=seed,
@@ -110,10 +166,15 @@ def train(
 
     gear_factory = t.make_gear_factory(cfg.model)
     trainer = Trainer(
-        cfg, model, train_loader, val_loader,
+        cfg,
+        model,
+        train_loader,
+        val_loader,
         gear_factory=gear_factory,
-        loss_fn=t.loss_fn, predict_fn=t.predict_fn,
-        metrics_fn=t.metrics_fn, device=device,
+        loss_fn=t.loss_fn,
+        predict_fn=t.predict_fn,
+        metrics_fn=t.metrics_fn,
+        device=device,
     )
 
     if resume:
@@ -125,7 +186,9 @@ def train(
 @app.command()
 def download(
     task: Annotated[str, typer.Argument(help="Task name")],
-    data_path: Annotated[Optional[Path], typer.Option(help="Download directory (default: task-specific)")] = None,
+    data_path: Annotated[
+        Optional[Path], typer.Option(help="Download directory (default: task-specific)")
+    ] = None,
 ) -> None:
     """Download dataset for a task."""
     from softgear.tasks.registry import get_task
@@ -142,12 +205,18 @@ def download(
 @app.command("eval")
 def evaluate(
     checkpoint: Annotated[Path, typer.Argument(help="Checkpoint file path")],
-    data_path: Annotated[Optional[Path], typer.Option(help="Dataset directory (default: task-specific)")] = None,
-    max_samples: Annotated[Optional[int], typer.Option(help="Limit dataset size")] = None,
+    data_path: Annotated[
+        Optional[Path], typer.Option(help="Dataset directory (default: task-specific)")
+    ] = None,
+    max_samples: Annotated[
+        Optional[int], typer.Option(help="Limit dataset size")
+    ] = None,
     batch_size: Annotated[int, typer.Option(help="Batch size")] = 64,
 ) -> None:
     """Evaluate a trained SoftGear model."""
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s"
+    )
 
     from softgear.config import ModelConfig
     from softgear.tasks.registry import get_task
@@ -161,7 +230,8 @@ def evaluate(
     model_cfg = ModelConfig(**ckpt["config"]["model"])
     data_cfg = replace(
         t.data_defaults,
-        batch_size=batch_size, max_samples=max_samples,
+        batch_size=batch_size,
+        max_samples=max_samples,
         **({"path": str(data_path)} if data_path else {}),
     )
 

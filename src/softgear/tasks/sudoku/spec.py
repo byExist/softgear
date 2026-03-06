@@ -18,8 +18,15 @@ sudoku4 = TaskSpec(
     predict_fn=sudoku_predict,
     metrics_fn=sudoku_accuracy,
     mount_all_gears=mount_all_gears,
-    model_defaults=ModelConfig(vocab_size=5, seq_len=16),
-    data_defaults=DataConfig(path="data/sudoku-4x4"),
+    model_defaults=ModelConfig(
+        vocab_size=5, seq_len=16,
+        hidden_dim=128, num_heads=4, ffn_dim=512,
+        num_gears=7, dropout=0.1, identity_init=True, scale=1.0,
+    ),
+    data_defaults=DataConfig(
+        path="data/sudoku-4x4",
+        batch_size=64, num_workers=4, max_samples=None, curriculum=False,
+    ),
     download=download_sudoku4,
 )
 
@@ -31,7 +38,14 @@ sudoku9 = TaskSpec(
     predict_fn=sudoku_predict,
     metrics_fn=sudoku_accuracy,
     mount_all_gears=mount_all_gears,
-    model_defaults=ModelConfig(vocab_size=10, seq_len=81),
-    data_defaults=DataConfig(path="data/sudoku-extreme"),
+    model_defaults=ModelConfig(
+        vocab_size=10, seq_len=81,
+        hidden_dim=128, num_heads=4, ffn_dim=512,
+        num_gears=7, dropout=0.1, identity_init=True, scale=1.0,
+    ),
+    data_defaults=DataConfig(
+        path="data/sudoku-extreme",
+        batch_size=64, num_workers=4, max_samples=None, curriculum=False,
+    ),
     download=download_sudoku9,
 )
