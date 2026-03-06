@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any
+from typing import Any, Literal
 
 from torch.optim import Optimizer
 
@@ -36,7 +36,7 @@ class ProgressiveDepthScheduler:
         base_lr: float = 3e-4,
         lr_decay: float = 0.5,
         patience: int = 5,
-        hardening: str = "gradual",
+        hardening: Literal["gradual", "none", "freeze", "binary", "from_scratch"] = "gradual",
         binary_factor: float = 0.4,
         min_delta: float = 1e-4,
     ):

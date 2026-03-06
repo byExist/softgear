@@ -6,10 +6,11 @@ from softgear.models.analyzer import Analyzer
 
 
 class DifferentialEMA:
-    """Per-gear EMA with different decay rates.
+    """Per-gear EMA that supports independent decay rates per gear.
 
-    Smaller gears (run more often) get lower alpha for faster adaptation.
-    Larger gears (run less often) get higher alpha for stability.
+    Currently used with uniform alpha across all gears.
+    The per-gear design allows future experimentation with
+    differentiated decay rates.
 
     Gears are discovered lazily via _sync_gears() since they are
     mounted progressively during training.

@@ -32,7 +32,7 @@ def download_sudoku4(data_dir: str) -> None:
         reader = csv.DictReader(f)
         for row in reader:
             q = row["Puzzle"].replace("0", ".")
-            a = row["Solution"].replace("0", ".")
+            a = row["Solution"]
             rows.append((q, a))
 
     random.shuffle(rows)

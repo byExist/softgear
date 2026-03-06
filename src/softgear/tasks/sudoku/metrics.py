@@ -11,9 +11,9 @@ def sudoku_accuracy(
     """Compute sudoku accuracy metrics.
 
     Args:
-        predictions: (B, 81) argmax predictions.
-        targets: (B, 81) ground truth solutions.
-        inputs: (B, 81) original puzzles (0 = blank cell).
+        predictions: (B, seq_len) argmax predictions.
+        targets: (B, seq_len) ground truth solutions.
+        inputs: (B, seq_len) original puzzles (0 = blank cell).
 
     Returns:
         cell_accuracy: Accuracy over all cells.
