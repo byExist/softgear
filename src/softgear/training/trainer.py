@@ -237,13 +237,13 @@ class Trainer:
             total = 0.0
             for p in gear.parameters():
                 if p.grad is not None:
-                    total += p.grad.data.norm(2).item() ** 2
+                    total += p.grad.data.norm(2).item() ** 2  # type: ignore[reportUnknownMemberType]
             norms[f"grad_norm/gear_{i}"] = total**0.5
 
         non_gear_total = 0.0
         for n, p in self.model.named_parameters():
             if not n.startswith("chain.gears.") and p.grad is not None:
-                non_gear_total += p.grad.data.norm(2).item() ** 2
+                non_gear_total += p.grad.data.norm(2).item() ** 2  # type: ignore[reportUnknownMemberType]
         norms["grad_norm/non_gear"] = non_gear_total**0.5
 
         return norms
