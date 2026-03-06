@@ -15,6 +15,7 @@ class ModelConfig:
     num_gears: int = 7
     dropout: float = 0.1
     identity_init: bool = True
+    scale: float = 1.0
 
 
 @dataclass

@@ -33,18 +33,25 @@ def build_sudoku_model(cfg: ModelConfig) -> Analyzer:
 
 
 def make_gear_factory(cfg: ModelConfig) -> Callable[[int], Gear]:
-    """Factory that creates a single-layer Gear for a given phase index.
+    """Factory that creates a Gear for a given phase index.
 
     Phase 0: normal init (first gear learns from scratch).
-    Phase 1+: identity init (new gear preserves existing block behavior).
+    Phase 1+: identity init (new gear preserves existing chain behavior).
+
+    scale controls layers per gear:
+        1.0: all gears get 1 layer (uniform)
+        2.0: gear i gets round(2^i) layers -> 1, 2, 4, 8, ...
+        1.5: gear i gets round(1.5^i) layers -> 1, 2, 2, 3, 5, ...
     """
 
     def factory(phase_idx: int) -> Gear:
+        num_layers = max(1, round(cfg.scale ** phase_idx))
         return Gear(
             cfg.hidden_dim,
             cfg.num_heads,
             cfg.ffn_dim,
-            cfg.dropout,
+            num_layers=num_layers,
+            dropout=cfg.dropout,
             identity_init=(cfg.identity_init and phase_idx > 0),
         )
 

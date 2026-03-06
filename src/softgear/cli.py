@@ -31,6 +31,7 @@ def train(
     # experiment (independent variables)
     hardening: Annotated[str, typer.Option(help="Hardening strategy: gradual|none|freeze|binary|from_scratch")] = "gradual",
     identity_init: Annotated[bool, typer.Option("--identity-init/--no-identity-init", help="Identity init for new gears (disable for ablation)")] = True,
+    scale: Annotated[float, typer.Option(help="Resolution scale: gear i gets round(scale^i) layers (1.0=uniform)")] = 1.0,
     num_gears: Annotated[int, typer.Option(help="Number of progressive gears")] = 7,
     lr_decay: Annotated[float, typer.Option(help="LR decay per phase (gradual hardening)")] = 0.5,
     binary_factor: Annotated[float, typer.Option(help="Binary hardening factor (binary hardening)")] = 0.4,
@@ -73,7 +74,7 @@ def train(
         t.model_defaults,
         hidden_dim=hidden_dim, num_heads=num_heads,
         ffn_dim=ffn_dim, num_gears=num_gears, dropout=dropout,
-        identity_init=identity_init,
+        identity_init=identity_init, scale=scale,
     )
     data_cfg = replace(
         t.data_defaults,
