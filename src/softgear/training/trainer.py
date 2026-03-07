@@ -318,6 +318,7 @@ class Trainer:
         epoch: int = 0,
         best_val_loss: float = float("inf"),
     ) -> None:
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
         torch.save(
             {
                 "config": dataclasses.asdict(self.cfg),
