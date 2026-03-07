@@ -4,6 +4,14 @@
 
 Inspired by the [differential analyzer](https://en.wikipedia.org/wiki/Differential_analyser), SoftGear trains deep transformers by mounting gears one at a time, gradually hardening older ones so each gear develops a distinct role.
 
+## Intuition
+
+A [differential analyzer](https://en.wikipedia.org/wiki/Differential_analyser) solves equations through interlocking gears that move a pen across paper, tracing a solution curve.
+
+Now imagine **holding the pen at the answer and pushing back** — the force travels through the gear chain, carving each gear into shape. This is backpropagation. Each gear deforms to make the pen land closer to the correct curve.
+
+SoftGear builds on this: mount gears one at a time, let backpropagation carve each one, then harden it before adding the next.
+
 ## How It Works
 
 A **gear** is a group of Transformer layers. Training proceeds in phases:
